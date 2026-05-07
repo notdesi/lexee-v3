@@ -9,6 +9,7 @@ export type DocumentPreview = {
   body: string;
   src?: string;
   editable?: boolean;
+  isLexeeGenerated?: boolean;
 };
 
 type DocumentPreviewPanelProps = {
@@ -60,6 +61,7 @@ export function DocumentPreviewPanel({
 
   const widthClass = "w-[clamp(487px,45.24vw,661px)]";
   const canDownloadFromSrc = Boolean(active?.src);
+  const canUploadToCloud = Boolean(active?.isLexeeGenerated);
 
   const handleDownloadTextDocument = () => {
     if (!active) return;
@@ -243,15 +245,17 @@ export function DocumentPreviewPanel({
                   Download
                 </button>
               )}
-              <button
-                type="button"
-                className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950"
-                aria-label="Upload document to cloud"
-                title="Upload to cloud"
-              >
-                <Upload className="h-4 w-4" strokeWidth={1.75} />
-                Upload to cloud
-              </button>
+              {canUploadToCloud ? (
+                <button
+                  type="button"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950"
+                  aria-label="Upload document to cloud"
+                  title="Upload to cloud"
+                >
+                  <Upload className="h-4 w-4" strokeWidth={1.75} />
+                  Upload to cloud
+                </button>
+              ) : null}
             </div>
             {hasMultiple ? (
               <div className="flex items-center gap-2">

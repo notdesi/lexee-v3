@@ -103,6 +103,11 @@ export default function SkillsPage() {
                         <span className="mt-2 text-[12px] leading-4 text-neutral-600">
                           Created on {formatCreatedOn(skill.createdAt)}
                         </span>
+                        {skill.category !== "cloudlex" ? (
+                          <span className="mt-3 inline-flex w-fit items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-medium leading-4 text-violet-700">
+                            {skill.caseCategory}
+                          </span>
+                        ) : null}
                       </Link>
                     </li>
                   ))}

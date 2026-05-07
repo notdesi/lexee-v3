@@ -72,6 +72,13 @@ Email: mcarter@carterreynolds.com
 
 You must serve your written response within twenty (20) days after service of this Summons upon you, exclusive of the day of service, and file the original response with the Clerk of this Court either before service on Plaintiff's attorney or immediately thereafter. If you fail to do so, a default may be entered against you for the relief demanded in the Complaint.`;
 
+const SAMPLE_DOCUMENT_PREVIEW: DocumentPreview = {
+  title: "Sample document",
+  subtitle: "PDF Document",
+  body: "",
+  src: "/sampledocument.pdf",
+};
+
 const MATTERS = [
   "Murdock v. Metro Health",
   "People v. N. Castle Holdings",
@@ -87,6 +94,31 @@ type ChatMessage = {
   content: string;
   presentation?: "medical_summary_demo" | "summons_document_demo";
 };
+
+const DUMMY_HISTORY_CONVERSATION: ChatMessage[] = [
+  {
+    id: "history-demo-user-1",
+    role: "user",
+    content: "Create a medical summary for Tyler Durden's accident treatment timeline.",
+  },
+  {
+    id: "history-demo-assistant-1",
+    role: "assistant",
+    content:
+      "Absolutely. I can prepare a structured medical summary covering the accident details, emergency care, diagnostics, follow-up treatment, and current condition.",
+  },
+  {
+    id: "history-demo-user-2",
+    role: "user",
+    content: "Include MRI findings and specialist recommendations.",
+  },
+  {
+    id: "history-demo-assistant-2",
+    role: "assistant",
+    content: "",
+    presentation: "medical_summary_demo",
+  },
+];
 
 function HomeInner() {
   const router = useRouter();
@@ -151,6 +183,44 @@ function HomeInner() {
     window.addEventListener("lexee:new-chat", resetChat);
     return () => {
       window.removeEventListener("lexee:new-chat", resetChat);
+    };
+  }, []);
+
+  useEffect(() => {
+    const loadHistoryConversation = () => {
+      generationAbortRef.current?.abort();
+      generationAbortRef.current = null;
+      setMessage("");
+      setMessages(DUMMY_HISTORY_CONVERSATION);
+      setIsGenerating(false);
+      setGenerationProgress(null);
+      setSelectedMatter(MEDICAL_SUMMARY_DEMO_MATTER);
+      setMatterMenuOpen(false);
+      setMatterQuery("");
+      setInlineMatterMenuOpen(false);
+      setInlineMatterQuery("");
+      setDocumentPreviewOpen(false);
+      setDocumentCollection([]);
+      setDocumentActiveIndex(0);
+      setDocumentCollectionTitle(undefined);
+      setDocumentCollectionSubtitle(undefined);
+    };
+
+    const pendingConversation = window.sessionStorage.getItem("lexee:pending-history-conversation");
+    if (pendingConversation === "medical-summary-demo") {
+      loadHistoryConversation();
+      window.sessionStorage.removeItem("lexee:pending-history-conversation");
+    }
+
+    const handleHistoryConversationOpen = (event: Event) => {
+      const customEvent = event as CustomEvent<{ conversationId?: string }>;
+      if (customEvent.detail?.conversationId !== "medical-summary-demo") return;
+      loadHistoryConversation();
+    };
+
+    window.addEventListener("lexee:open-history-conversation", handleHistoryConversationOpen);
+    return () => {
+      window.removeEventListener("lexee:open-history-conversation", handleHistoryConversationOpen);
     };
   }, []);
 
@@ -383,6 +453,14 @@ function HomeInner() {
     setDocumentCollectionTitle(title);
     setDocumentCollectionSubtitle(subtitle);
     setDocumentPreviewOpen(true);
+  };
+
+  const openMedicalSummaryCitationPreview = (
+    _docs: DocumentPreview[],
+    _title: string,
+    _subtitle?: string,
+  ) => {
+    openDocumentPreview([SAMPLE_DOCUMENT_PREVIEW], "Citation document", "Source document");
   };
 
   const chatStarted = messages.length > 0;
@@ -676,7 +754,7 @@ function HomeInner() {
                   </div>
                 ) : chatMessage.presentation === "medical_summary_demo" ? (
                   <div key={chatMessage.id} className="max-w-[90%]">
-                    <MedicalSummaryDemoResponse onCitationClick={openDocumentPreview} />
+                    <MedicalSummaryDemoResponse onCitationClick={openMedicalSummaryCitationPreview} />
                     <div className="mt-1 flex items-center gap-1 text-neutral-500">
                       <button
                         type="button"
@@ -722,6 +800,7 @@ function HomeInner() {
                                 subtitle: "PDF Document",
                                 body: SUMMONS_DOCUMENT_BODY,
                                 editable: true,
+                                isLexeeGenerated: true,
                               },
                             ],
                             "Summons document",

@@ -249,6 +249,21 @@ export function SidePanel() {
                   <div className="mt-1 flex flex-col gap-1 pb-1 px-2">
                     <button
                       type="button"
+                      onClick={() => {
+                        if (pathname === "/") {
+                          window.dispatchEvent(
+                            new CustomEvent("lexee:open-history-conversation", {
+                              detail: { conversationId: "medical-summary-demo" },
+                            }),
+                          );
+                          return;
+                        }
+                        window.sessionStorage.setItem(
+                          "lexee:pending-history-conversation",
+                          "medical-summary-demo",
+                        );
+                        router.push("/");
+                      }}
                       className="w-full rounded-[6px] px-2 py-2 text-left font-inter text-[12px] leading-4 whitespace-nowrap truncate text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
                     >
                       Create Medical summary

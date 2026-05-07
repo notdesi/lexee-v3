@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowUp, Check, ChevronDown, Mic, Plus, Search } from "lucide-react";
+import { ArrowUp, Check, ChevronDown, Copy, Mic, Pencil, Plus, RotateCcw, Search, Share2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent, KeyboardEvent } from "react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { MedicalSummaryDemoResponse } from "@/components/MedicalSummaryDemoResponse";
+import { DocumentPreviewPanel, type DocumentPreview } from "@/components/DocumentPreviewPanel";
 import {
   GENERATION_PHASES,
   type GenerationProgress,
@@ -48,9 +49,15 @@ function HomeInner() {
   const [inlineMatterMenuOpen, setInlineMatterMenuOpen] = useState(false);
   const [inlineMatterQuery, setInlineMatterQuery] = useState("");
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null);
+  const [documentPreviewOpen, setDocumentPreviewOpen] = useState(false);
+  const [documentCollection, setDocumentCollection] = useState<DocumentPreview[]>([]);
+  const [documentActiveIndex, setDocumentActiveIndex] = useState(0);
+  const [documentCollectionTitle, setDocumentCollectionTitle] = useState<string | undefined>(undefined);
+  const [documentCollectionSubtitle, setDocumentCollectionSubtitle] = useState<string | undefined>(undefined);
   const matterMenuRef = useRef<HTMLDivElement | null>(null);
   const inlineMatterMenuRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const generationAbortRef = useRef<AbortController | null>(null);
 
   const resizeTextarea = (event: FormEvent<HTMLTextAreaElement>) => {
@@ -187,8 +194,8 @@ function HomeInner() {
 
   const isSendDisabled = message.trim().length === 0 || isGenerating;
 
-  const sendMessage = async () => {
-    const trimmed = message.trim();
+  const sendMessage = async (contentOverride?: string) => {
+    const trimmed = (contentOverride ?? message).trim();
     if (!trimmed) return;
 
     generationAbortRef.current?.abort();
@@ -199,7 +206,9 @@ function HomeInner() {
       setSelectedMatter(MEDICAL_SUMMARY_DEMO_MATTER);
     }
 
-    setMessage("");
+    if (!contentOverride) {
+      setMessage("");
+    }
     setMessages((prev) => [
       ...prev,
       {
@@ -253,11 +262,66 @@ function HomeInner() {
     }
   };
 
+  const handleRetryMessage = (content: string) => {
+    if (isGenerating) return;
+    void sendMessage(content);
+  };
+
+  const handleEditMessage = (content: string) => {
+    setMessage(content);
+    textareaRef.current?.focus();
+  };
+
+  const handleCopyMessage = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+    } catch {
+      // Ignore clipboard failures.
+    }
+  };
+
+  const handleRetryResponse = (messageIndex: number) => {
+    if (isGenerating) return;
+    for (let i = messageIndex - 1; i >= 0; i -= 1) {
+      const candidate = messages[i];
+      if (candidate?.role === "user") {
+        void sendMessage(candidate.content);
+        break;
+      }
+    }
+  };
+
+  const handleShareMessage = async (content: string) => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ text: content });
+        return;
+      }
+      await navigator.clipboard.writeText(content);
+    } catch {
+      // Ignore share/clipboard failures.
+    }
+  };
+
+  const openDocumentPreview = (
+    docs: DocumentPreview[],
+    title: string,
+    subtitle?: string,
+  ) => {
+    if (!docs.length) return;
+    setDocumentCollection(docs);
+    setDocumentActiveIndex(0);
+    setDocumentCollectionTitle(title);
+    setDocumentCollectionSubtitle(subtitle);
+    setDocumentPreviewOpen(true);
+  };
+
   const chatStarted = messages.length > 0;
 
   return (
-    <div className="flex min-h-full w-full flex-1 flex-col bg-[var(--background)] pl-4 pr-6">
-      <div
+    <div className="flex min-h-full w-full flex-1 bg-[var(--background)]">
+      <div className="flex min-h-full min-w-0 flex-1 flex-col pl-4 pr-6">
+        <div
         ref={matterMenuRef}
         className={[
           "relative z-20 flex w-full shrink-0 justify-start bg-[var(--background)]",
@@ -347,7 +411,7 @@ function HomeInner() {
             </div>
           ) : null}
         </div>
-      </div>
+        </div>
 
       {!chatStarted ? (
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center pb-16 pt-4">
@@ -365,7 +429,7 @@ function HomeInner() {
               </h1>
             </div>
 
-            <div className="w-full max-w-2xl space-y-3">
+            <div className="w-full max-w-2xl space-y-0">
               {selectedMatter ? (
                 <div className="rounded-t-xl border border-b-0 border-violet-200 bg-violet-50 px-3 py-2">
                   <p className="text-[12px] leading-4 text-neutral-800">
@@ -424,7 +488,7 @@ function HomeInner() {
               </div>
 
               {!selectedMatter ? (
-                <div className="rounded-xl border border-violet-200/80 bg-violet-50/70 p-3 shadow-[0_1px_2px_rgba(40,38,64,0.10)]">
+                <div className="mt-3 rounded-xl border border-violet-200/80 bg-violet-50/70 p-3 shadow-[0_1px_2px_rgba(40,38,64,0.10)]">
                   <p className="text-[12px] leading-4 text-neutral-700">
                     Search and select a matter here, or prompt directly in chat and we will infer the matter context.
                   </p>
@@ -506,20 +570,109 @@ function HomeInner() {
       ) : (
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col pt-4">
           <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3 pb-4 pt-2">
-            {messages.map((chatMessage) =>
+            {messages.map((chatMessage, messageIndex) =>
                 chatMessage.role === "user" ? (
-                  <div
-                    key={chatMessage.id}
-                    className="ml-auto w-fit max-w-[80%] rounded-[6px] bg-neutral-200 px-[10px] py-[6px]"
-                  >
-                    <p className="text-body-lg text-neutral-950">{chatMessage.content}</p>
+                  <div key={chatMessage.id} className="ml-auto max-w-[80%]">
+                    <div className="ml-auto w-fit rounded-[6px] bg-neutral-200 px-[10px] py-1">
+                      <p className="text-body-lg text-neutral-950">{chatMessage.content}</p>
+                    </div>
+                    <div className="mt-1 flex items-center justify-end gap-1 text-neutral-500">
+                      <button
+                        type="button"
+                        aria-label="Retry message"
+                        onClick={() => handleRetryMessage(chatMessage.content)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Edit message"
+                        onClick={() => handleEditMessage(chatMessage.content)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <Pencil className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Copy message"
+                        onClick={() => {
+                          void handleCopyMessage(chatMessage.content);
+                        }}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                    </div>
                   </div>
                 ) : chatMessage.presentation === "medical_summary_demo" ? (
-                  <MedicalSummaryDemoResponse key={chatMessage.id} />
+                  <div key={chatMessage.id} className="max-w-[90%]">
+                    <MedicalSummaryDemoResponse onCitationClick={openDocumentPreview} />
+                    <div className="mt-1 flex items-center gap-1 text-neutral-500">
+                      <button
+                        type="button"
+                        aria-label="Copy response"
+                        onClick={() => {
+                          void handleCopyMessage(chatMessage.content || "Medical Summary (demo)");
+                        }}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Retry response"
+                        onClick={() => handleRetryResponse(messageIndex)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Share response"
+                        onClick={() => {
+                          void handleShareMessage(chatMessage.content || "Medical Summary (demo)");
+                        }}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <Share2 className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <p key={chatMessage.id} className="max-w-[90%] whitespace-pre-wrap text-response-md text-neutral-950">
-                    {chatMessage.content}
-                  </p>
+                  <div key={chatMessage.id} className="max-w-[90%]">
+                    <p className="whitespace-pre-wrap text-response-md text-neutral-950">{chatMessage.content}</p>
+                    <div className="mt-1 flex items-center gap-1 text-neutral-500">
+                      <button
+                        type="button"
+                        aria-label="Copy response"
+                        onClick={() => {
+                          void handleCopyMessage(chatMessage.content);
+                        }}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Retry response"
+                        onClick={() => handleRetryResponse(messageIndex)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Share response"
+                        onClick={() => {
+                          void handleShareMessage(chatMessage.content);
+                        }}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <Share2 className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                    </div>
+                  </div>
                 ),
             )}
             {isGenerating && generationProgress ? (
@@ -565,6 +718,7 @@ function HomeInner() {
               ].join(" ")}
             >
               <textarea
+                ref={textareaRef}
                 rows={1}
                 onInput={resizeTextarea}
                 onKeyDown={handleTextareaKeyDown}
@@ -610,6 +764,19 @@ function HomeInner() {
           </div>
         </div>
       )}
+      </div>
+
+      {documentPreviewOpen ? (
+        <DocumentPreviewPanel
+          open={documentPreviewOpen}
+          documents={documentCollection}
+          activeIndex={documentActiveIndex}
+          collectionTitle={documentCollectionTitle}
+          collectionSubtitle={documentCollectionSubtitle}
+          onSelect={setDocumentActiveIndex}
+          onClose={() => setDocumentPreviewOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

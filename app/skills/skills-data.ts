@@ -23,12 +23,6 @@ export const SKILLS: Skill[] = [
     createdAt: "2026-05-04T14:00:00.000Z",
   },
   {
-    id: "doc-pleadings",
-    title: "Pleadings",
-    category: "document",
-    createdAt: "2026-05-03T10:30:00.000Z",
-  },
-  {
     id: "doc-demand",
     title: "Demand letter",
     category: "document",
@@ -47,12 +41,6 @@ export const SKILLS: Skill[] = [
     createdAt: "2026-05-04T11:00:00.000Z",
   },
   {
-    id: "ck-case-summaries",
-    title: "Case Summaries",
-    category: "case_knowledge",
-    createdAt: "2026-05-01T08:45:00.000Z",
-  },
-  {
     id: "wf-lead-intake",
     title: "Lead to intake",
     category: "workflow",
@@ -60,7 +48,7 @@ export const SKILLS: Skill[] = [
   },
   {
     id: "wf-litigation",
-    title: "Litigation",
+    title: "Task creation",
     category: "workflow",
     createdAt: "2026-05-03T15:40:00.000Z",
   },

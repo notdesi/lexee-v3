@@ -89,7 +89,7 @@ export default function SkillsPage() {
               {skills.length === 0 ? (
                 <p className="mt-3 text-body-md text-neutral-600">No matching skills in this category.</p>
               ) : (
-                <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <ul className="mt-4 grid gap-3 grid-cols-2">
                   {skills.map((skill) => (
                     <li key={skill.id}>
                       <Link

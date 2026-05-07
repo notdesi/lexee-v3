@@ -1,12 +1,15 @@
 /** Prototype skill id → chat launch routing (see `app/page.tsx`). */
 export const MEDICAL_SUMMARY_SKILL_ID = "ck-med-summary";
+export const SUMMONS_SKILL_ID = "doc-summons";
 
 /** User message shown when opening the Medical Summary skill from Skills. */
 export const MEDICAL_SUMMARY_DEMO_PROMPT =
   "create a detailed medical sumary for Tyler Durden vs Narrator";
+export const SUMMONS_DEMO_PROMPT = "Create a summons for this matter";
 
 /** Matter forced on for Medical Summary prototype (skill launch + demo prompt). */
 export const MEDICAL_SUMMARY_DEMO_MATTER = "Tyler Durden v. Narrator";
+export const SUMMONS_DEMO_RESPONSE = "Sure! Do you have any additional instructions for me?";
 
 function normalisePrompt(prompt: string): string {
   return prompt

@@ -53,7 +53,7 @@ export default async function SkillsCategoryPage({ params }: PageProps) {
           </h1>
         </div>
 
-        <ul className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-10 grid gap-3 grid-cols-2">
           {skills.map((skill) => (
             <li key={skill.id}>
               <Link

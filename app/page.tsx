@@ -1,7 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowUp, Check, ChevronDown, Copy, Mic, Pencil, Plus, RotateCcw, Search, Share2 } from "lucide-react";
+import {
+  ArrowUp,
+  Check,
+  ChevronDown,
+  Copy,
+  Download,
+  FileText,
+  Mic,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  Share2,
+} from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent, KeyboardEvent } from "react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -16,9 +29,48 @@ import {
   MEDICAL_SUMMARY_SKILL_ID,
   MEDICAL_SUMMARY_DEMO_PROMPT,
   MEDICAL_SUMMARY_DEMO_MATTER,
+  SUMMONS_DEMO_PROMPT,
+  SUMMONS_DEMO_RESPONSE,
+  SUMMONS_SKILL_ID,
   shouldUseMedicalSummaryDemoResponse,
 } from "@/lib/skill-launches";
 import { getResponse } from "@/lib/responses";
+
+const SUMMONS_DOCUMENT_BODY = `SUMMONS
+
+IN THE CIRCUIT COURT OF THE STATE OF FLORIDA
+IN AND FOR MIAMI-DADE COUNTY
+
+TYLER DURDEN,
+Plaintiff,
+
+v. Case No.: ___________
+
+JANE SMITH,
+Defendant.
+
+SUMMONS
+
+THE STATE OF FLORIDA:
+
+To Each Sheriff of the State:
+
+YOU ARE COMMANDED to serve this Summons and a copy of the Complaint in this action upon:
+
+JANE SMITH
+1458 West Palm Avenue
+Miami, Florida 33130
+
+A lawsuit has been filed against you. You are required to serve a written response to the Complaint on the Plaintiff's attorney whose name and address are:
+
+Michael A. Carter, Esq.
+Carter & Reynolds, P.A.
+225 Brickell Avenue, Suite 1800
+Miami, Florida 33131
+Phone: (305) 555-4821
+Email: mcarter@carterreynolds.com
+
+You must serve your written response within twenty (20) days after service of this Summons upon you, exclusive of the day of service, and file the original response with the Clerk of this Court either before service on Plaintiff's attorney or immediately thereafter. If you fail to do so, a default may be entered against you for the relief demanded in the Complaint.`;
 
 const MATTERS = [
   "Murdock v. Metro Health",
@@ -33,7 +85,7 @@ type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  presentation?: "medical_summary_demo";
+  presentation?: "medical_summary_demo" | "summons_document_demo";
 };
 
 function HomeInner() {
@@ -104,7 +156,9 @@ function HomeInner() {
 
   useEffect(() => {
     const skill = searchParams.get("skill");
-    if (skill !== MEDICAL_SUMMARY_SKILL_ID) return;
+    const isMedicalSummaryLaunch = skill === MEDICAL_SUMMARY_SKILL_ID;
+    const isSummonsLaunch = skill === SUMMONS_SKILL_ID;
+    if (!isMedicalSummaryLaunch && !isSummonsLaunch) return;
 
     let cancelled = false;
 
@@ -119,10 +173,10 @@ function HomeInner() {
         {
           id: `launch-user-${Date.now()}`,
           role: "user",
-          content: MEDICAL_SUMMARY_DEMO_PROMPT,
+          content: isSummonsLaunch ? SUMMONS_DEMO_PROMPT : MEDICAL_SUMMARY_DEMO_PROMPT,
         },
       ]);
-      setSelectedMatter(MEDICAL_SUMMARY_DEMO_MATTER);
+      setSelectedMatter(isMedicalSummaryLaunch ? MEDICAL_SUMMARY_DEMO_MATTER : null);
       /* Keep ?skill= in the URL until generation finishes — immediate router.replace here
        * can reset the suspense/searchParams subtree and drop isGenerating / generationProgress. */
       setIsGenerating(true);
@@ -151,12 +205,18 @@ function HomeInner() {
 
         setMessages((prev) => [
           ...prev,
-          {
-            id: `launch-assistant-${Date.now()}`,
-            role: "assistant",
-            content: "",
-            presentation: "medical_summary_demo",
-          },
+          isSummonsLaunch
+            ? {
+                id: `launch-assistant-${Date.now()}`,
+                role: "assistant" as const,
+                content: SUMMONS_DEMO_RESPONSE,
+              }
+            : {
+                id: `launch-assistant-${Date.now()}`,
+                role: "assistant" as const,
+                content: "",
+                presentation: "medical_summary_demo" as const,
+              },
         ]);
         setIsGenerating(false);
         setGenerationProgress(null);
@@ -234,8 +294,13 @@ function HomeInner() {
 
     const normalized = trimmed.toLowerCase();
     const useMedicalSummaryDemo = shouldUseMedicalSummaryDemoResponse(trimmed);
+    const latestAssistantMessage = [...messages].reverse().find((msg) => msg.role === "assistant");
+    const useSummonsDocumentDemo =
+      normalized === "no" && latestAssistantMessage?.content === SUMMONS_DEMO_RESPONSE;
     const assistantReply =
-      useMedicalSummaryDemo
+      useSummonsDocumentDemo
+        ? "Here is your Summons document"
+        : useMedicalSummaryDemo
         ? ""
         : normalized === "hi" && selectedMatter
           ? `We are in the context of ${selectedMatter}. How can I help you?`
@@ -247,7 +312,11 @@ function HomeInner() {
         id: `${Date.now()}-assistant`,
         role: "assistant",
         content: assistantReply,
-        ...(useMedicalSummaryDemo ? { presentation: "medical_summary_demo" as const } : {}),
+        ...(useMedicalSummaryDemo
+          ? { presentation: "medical_summary_demo" as const }
+          : useSummonsDocumentDemo
+            ? { presentation: "summons_document_demo" as const }
+            : {}),
       },
     ]);
     setIsGenerating(false);
@@ -642,6 +711,48 @@ function HomeInner() {
                 ) : (
                   <div key={chatMessage.id} className="max-w-[90%]">
                     <p className="whitespace-pre-wrap text-response-md text-neutral-950">{chatMessage.content}</p>
+                    {chatMessage.presentation === "summons_document_demo" ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openDocumentPreview(
+                            [
+                              {
+                                title: `Summons for ${selectedMatter ?? "this matter"}`,
+                                subtitle: "PDF Document",
+                                body: SUMMONS_DOCUMENT_BODY,
+                                editable: true,
+                              },
+                            ],
+                            "Summons document",
+                            "Generated draft",
+                          )
+                        }
+                        className="mt-3 w-full rounded-xl border border-neutral-200 p-3 text-left transition-colors hover:border-violet-300"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-violet-700">
+                            <FileText className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-body-md font-medium text-neutral-950">
+                              Summons for {selectedMatter ?? "this matter"}
+                            </p>
+                            <p className="mt-0.5 text-[12px] leading-4 text-neutral-600">PDF Document</p>
+                          </div>
+                          <a
+                            href="/sampledocument.pdf"
+                            download
+                            onClick={(event) => event.stopPropagation()}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950"
+                            aria-label="Download summons document"
+                            title="Download"
+                          >
+                            <Download className="h-4 w-4" strokeWidth={1.75} />
+                          </a>
+                        </div>
+                      </button>
+                    ) : null}
                     <div className="mt-1 flex items-center gap-1 text-neutral-500">
                       <button
                         type="button"
@@ -774,6 +885,11 @@ function HomeInner() {
           collectionTitle={documentCollectionTitle}
           collectionSubtitle={documentCollectionSubtitle}
           onSelect={setDocumentActiveIndex}
+          onUpdateDocument={(index, next) =>
+            setDocumentCollection((prev) =>
+              prev.map((doc, i) => (i === index ? next : doc)),
+            )
+          }
           onClose={() => setDocumentPreviewOpen(false)}
         />
       ) : null}

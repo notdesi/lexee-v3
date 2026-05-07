@@ -1,12 +1,11 @@
-"use client";
-
 import Link from "next/link";
-import { use } from "react";
 import { MoreHorizontal } from "lucide-react";
 
 import {
+  CATEGORY_ORDER,
   CATEGORY_HEADINGS,
   SKILLS,
+  categoryToSlug,
   formatCreatedOn,
   skillsSortedByCreatedDesc,
   slugToCategory,
@@ -17,8 +16,8 @@ type PageProps = {
   params: Promise<{ category: string }>;
 };
 
-export default function SkillsCategoryPage({ params }: PageProps) {
-  const { category: slug } = use(params);
+export default async function SkillsCategoryPage({ params }: PageProps) {
+  const { category: slug } = await params;
   const category = slugToCategory(slug);
 
   if (!category) {
@@ -75,4 +74,10 @@ export default function SkillsCategoryPage({ params }: PageProps) {
       </div>
     </div>
   );
+}
+
+export function generateStaticParams() {
+  return CATEGORY_ORDER.map((category) => ({
+    category: categoryToSlug(category),
+  }));
 }

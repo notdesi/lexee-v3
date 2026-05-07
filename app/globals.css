@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Violet scale */
+    --violet-50: #f2f4fb;
+    --violet-100: #e7eaf8;
+    --violet-200: #d3d8f2;
+    --violet-300: #b8bfe9;
+    --violet-400: #9b9fde;
+    --violet-500: #8483d1;
+    --violet-600: #665ebd;
+    --violet-700: #6058aa;
+    --violet-800: #504a89;
+    --violet-900: #43406f;
+    --violet-950: #282640;
+
+    /* Neutral scale */
+    --neutral-50: #ffffff;
+    --neutral-100: #fafafa;
+    --neutral-200: #ededed;
+    --neutral-300: #d3d3d3;
+    --neutral-400: #a3a3a3;
+    --neutral-500: #727272;
+    --neutral-600: #535353;
+    --neutral-700: #404040;
+    --neutral-800: #272727;
+    --neutral-900: #1a1a1a;
+    --neutral-950: #121212;
+
+    /* Semantic tokens */
+    --background: #f8f8f6;
+    --foreground: var(--neutral-950);
+    --button-ghost-fg: var(--neutral-700);
+    --button-ghost-hover: var(--neutral-200);
+    --button-primary-bg: var(--violet-600);
+    --button-primary-hover: var(--violet-700);
+    --button-primary-fg: var(--neutral-50);
+    --button-primary-disabled-bg: var(--violet-300);
+    --button-primary-disabled-fg: var(--violet-100);
+    --chatbox-bg: #ffffff;
+    --chatbox-border: var(--neutral-300);
+  }
+
+  [data-theme="dark"] {
+    /* Neutral scale (dark mode remap) */
+    --neutral-50: #121212;
+    --neutral-100: #1a1a1a;
+    --neutral-200: #272727;
+    --neutral-300: #404040;
+    --neutral-400: #535353;
+    --neutral-500: #727272;
+    --neutral-600: #a3a3a3;
+    --neutral-700: #d3d3d3;
+    --neutral-800: #ededed;
+    --neutral-900: #fafafa;
+    --neutral-950: #ffffff;
+
+    --background: #121212;
+    --foreground: #fafafa;
+    --button-ghost-fg: #e5e5e5;
+    --button-ghost-hover: #2a2a2a;
+    --button-primary-bg: var(--violet-500);
+    --button-primary-hover: var(--violet-400);
+    --button-primary-fg: #121212;
+    --button-primary-disabled-bg: #3e3a63;
+    --button-primary-disabled-fg: #a8a5ce;
+    --chatbox-bg: var(--neutral-200);
+    --chatbox-border: #3a3a3a;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+@layer components {
+  /* Inter — UI / body text */
+  .text-body-lg {
+    font-family: var(--font-inter), system-ui, sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    letter-spacing: 0.5px;
+    color: var(--neutral-950);
+  }
+
+  .text-body-md {
+    font-family: var(--font-inter), system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 22px;
+    letter-spacing: 0px;
+    color: var(--neutral-950);
+  }
+
+  .text-body-md-secondary {
+    font-family: var(--font-inter), system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 22px;
+    letter-spacing: 0px;
+    color: var(--neutral-700);
+  }
+
+  .text-caption {
+    font-family: var(--font-inter), system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+    letter-spacing: 0px;
+    color: var(--neutral-500);
+  }
+
+  /* Spectral — AI chatbot responses only */
+  .text-response-lg {
+    font-family: var(--font-spectral), Georgia, serif;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 22px;
+    letter-spacing: -1px;
+    color: var(--neutral-950);
+  }
+
+  .text-response-md {
+    font-family: var(--font-spectral), Georgia, serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 22px;
+    letter-spacing: 0px;
+    color: var(--neutral-950);
+  }
+}

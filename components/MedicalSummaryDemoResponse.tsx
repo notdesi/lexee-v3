@@ -3,13 +3,20 @@
  * Plain semantic HTML only — no icons or emoji.
  */
 import { CitationPill } from "@/components/CitationPill";
+import { SourcesPill } from "@/components/SourcesPill";
 import type { DocumentPreview } from "@/components/DocumentPreviewPanel";
+import {
+  MEDICAL_SUMMARY_SOURCE_COUNT,
+  MEDICAL_SUMMARY_SOURCE_DOCUMENTS,
+} from "@/lib/medical-summary-source-documents";
+import { SAMPLE_DOCUMENT_PREVIEW } from "@/lib/sample-document-preview";
 
 type MedicalSummaryDemoResponseProps = {
   onCitationClick?: (docs: DocumentPreview[], collectionTitle: string, collectionSubtitle?: string) => void;
+  onSourcesClick?: (docs: DocumentPreview[], collectionTitle: string, collectionSubtitle?: string) => void;
 };
 
-export function MedicalSummaryDemoResponse({ onCitationClick }: MedicalSummaryDemoResponseProps) {
+export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: MedicalSummaryDemoResponseProps) {
   return (
     <article className="max-w-[90%] text-response-md text-neutral-950">
       <h2 className="font-spectral text-[18px] font-semibold leading-snug tracking-tight text-neutral-950">
@@ -45,18 +52,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick }: MedicalSummaryDe
           label="Citation: EMS report • ER intake note"
           onClick={() =>
             onCitationClick?.(
-              [
-                {
-                  title: "EMS report",
-                  subtitle: "01/14/2026 • Incident response summary",
-                  body: "Unit dispatched to rear-end collision.\nPatient: Tyler Durden.\nChief complaints: neck pain, low back pain, headache, dizziness.\nTransported to ED for evaluation.",
-                },
-                {
-                  title: "ER intake note",
-                  subtitle: "01/14/2026 • Metro Health ED",
-                  body: "Arrival via ambulance.\nComplaints: neck and low back pain, dizziness, headache.\nInitial vitals stable; patient placed in cervical collar; moved to exam bay.",
-                },
-              ],
+              [{ ...SAMPLE_DOCUMENT_PREVIEW }],
               "Accident Description",
               "Source documents for accident description",
             )
@@ -99,18 +95,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick }: MedicalSummaryDe
           label="Citation: ER visit summary • CT/X‑ray results"
           onClick={() =>
             onCitationClick?.(
-              [
-                {
-                  title: "ER visit summary",
-                  subtitle: "01/14/2026 • Metro Health ED",
-                  body: "Triage notes: neck pain, back pain, dizziness.\nExam: cervical/lumbar tenderness, muscle spasm.\nImaging: CT head negative; X‑ray without acute fracture.\nDisposition: discharged with meds and follow-up instructions.",
-                },
-                {
-                  title: "CT / X‑ray results",
-                  subtitle: "01/14/2026 • Imaging reports",
-                  body: "CT head: no acute intracranial abnormality.\nCervical spine X‑ray: no acute fracture or dislocation.\nLumbar spine X‑ray: no acute osseous injury.",
-                },
-              ],
+              [{ ...SAMPLE_DOCUMENT_PREVIEW }],
               "Initial Emergency Treatment",
               "Source documents for initial ER care",
             )
@@ -143,18 +128,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick }: MedicalSummaryDe
           label="Citation: PT notes • Follow‑up visit notes"
           onClick={() =>
             onCitationClick?.(
-              [
-                {
-                  title: "PT daily note",
-                  subtitle: "01/25/2026 • Initial evaluation",
-                  body: "Subjective: neck and low back pain with limited ROM.\nObjective: guarded movements, muscle spasm.\nPlan: manual therapy, therapeutic exercise, home program.",
-                },
-                {
-                  title: "Primary care follow‑up",
-                  subtitle: "01/22/2026 • Follow‑up visit",
-                  body: "Persistent pain and functional limitations.\nReferred to PT; MRI ordered due to continued symptoms.",
-                },
-              ],
+              [{ ...SAMPLE_DOCUMENT_PREVIEW }],
               "Follow‑Up Medical Care",
               "Progress notes supporting follow‑up care",
             )
@@ -175,22 +149,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick }: MedicalSummaryDe
         <CitationPill
           label="Citation: Cervical MRI • Lumbar MRI"
           onClick={() =>
-            onCitationClick?.(
-              [
-                {
-                  title: "Cervical MRI report",
-                  subtitle: "02/03/2026 • Cervical spine",
-                  body: "Disc bulge at C5-C6 with mild foraminal narrowing.\nStraightening of cervical lordosis consistent with spasm.",
-                },
-                {
-                  title: "Lumbar MRI report",
-                  subtitle: "02/03/2026 • Lumbar spine",
-                  body: "Disc protrusion at L4-L5; annular tear at L5-S1.\nFindings consistent with reported low back and leg symptoms.",
-                },
-              ],
-              "MRI Findings",
-              "Imaging reports supporting MRI findings",
-            )
+            onCitationClick?.([{ ...SAMPLE_DOCUMENT_PREVIEW }], "MRI Findings", "Imaging reports supporting MRI findings")
           }
         />
       </section>
@@ -217,18 +176,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick }: MedicalSummaryDe
           label="Citation: Treatment plan • Attendance records"
           onClick={() =>
             onCitationClick?.(
-              [
-                {
-                  title: "PT treatment plan",
-                  subtitle: "02/2026 • Plan of care",
-                  body: "Goals: reduce pain, improve ROM and strength, restore functional tolerance.\nInterventions: therapeutic exercise, manual therapy, modalities.",
-                },
-                {
-                  title: "Attendance records",
-                  subtitle: "02–03/2026 • PT sessions",
-                  body: "Documented attendance and cancellations across course of care.",
-                },
-              ],
+              [{ ...SAMPLE_DOCUMENT_PREVIEW }],
               "Conservative Treatment",
               "Documentation of conservative treatment course",
             )
@@ -262,18 +210,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick }: MedicalSummaryDe
           label="Citation: Ortho consult • Pain management consult"
           onClick={() =>
             onCitationClick?.(
-              [
-                {
-                  title: "Orthopedic consult",
-                  subtitle: "03/2026 • Spine specialist",
-                  body: "Exam consistent with cervical and lumbar disc pathology.\nRecommendations: continue conservative care; consider interventional options.",
-                },
-                {
-                  title: "Pain management consult",
-                  subtitle: "03/2026 • Pain clinic",
-                  body: "Assessment: cervical/lumbar radiculopathy; chronic pain.\nDiscussed epidural steroid injections and trigger point injections.",
-                },
-              ],
+              [{ ...SAMPLE_DOCUMENT_PREVIEW }],
               "Specialist Evaluations",
               "Specialist opinions supporting diagnosis and plan",
             )
@@ -295,24 +232,26 @@ export function MedicalSummaryDemoResponse({ onCitationClick }: MedicalSummaryDe
           label="Citation: Latest follow‑up note • Symptom journal"
           onClick={() =>
             onCitationClick?.(
-              [
-                {
-                  title: "Follow‑up clinic note",
-                  subtitle: "04/2026 • Ongoing symptoms",
-                  body: "Reports ongoing neck and low back pain with activity-related flare.\nPlan: continue rehab; re‑evaluate need for interventional treatment.",
-                },
-                {
-                  title: "Symptom journal excerpt",
-                  subtitle: "Patient‑reported outcomes",
-                  body: "Daily entries describing pain levels, triggers, and functional limitations in work and ADLs.",
-                },
-              ],
+              [{ ...SAMPLE_DOCUMENT_PREVIEW }],
               "Current Condition",
               "Recent documentation supporting current condition",
             )
           }
         />
       </section>
+
+      <div className="mt-5">
+        <SourcesPill
+          count={MEDICAL_SUMMARY_SOURCE_COUNT}
+          onClick={() =>
+            onSourcesClick?.(
+              MEDICAL_SUMMARY_SOURCE_DOCUMENTS,
+              "Sources",
+              `${MEDICAL_SUMMARY_SOURCE_COUNT} documents`,
+            )
+          }
+        />
+      </div>
     </article>
   );
 }

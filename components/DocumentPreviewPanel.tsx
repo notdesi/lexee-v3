@@ -33,7 +33,16 @@ export function DocumentPreviewPanel({
   onUpdateDocument,
   onClose,
 }: DocumentPreviewPanelProps) {
-  const [view, setView] = useState<"list" | "preview">("preview");
+  const documentSetKey = documents.map((d) => d.title).join("\u0000");
+  const syncKey = `${open}:${documentSetKey}:${documents.length}`;
+  const derivedViewDefault = documents.length > 1 ? "list" : "preview";
+  const [view, setView] = useState<"list" | "preview">(derivedViewDefault);
+  const [lastSyncKey, setLastSyncKey] = useState(syncKey);
+
+  if (syncKey !== lastSyncKey) {
+    setLastSyncKey(syncKey);
+    setView(derivedViewDefault);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -44,17 +53,6 @@ export function DocumentPreviewPanel({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
 
-  const documentSetKey = documents.map((d) => d.title).join("\u0000");
-
-  useEffect(() => {
-    if (!open) return;
-    if (documents.length > 1) {
-      setView("list");
-    } else {
-      setView("preview");
-    }
-  }, [open, documentSetKey, documents.length]);
-
   const hasMultiple = documents.length > 1;
   const active = documents[activeIndex] ?? documents[0] ?? null;
   const showPreview = !hasMultiple || view === "preview";
@@ -62,6 +60,10 @@ export function DocumentPreviewPanel({
   const widthClass = "w-[clamp(487px,45.24vw,661px)]";
   const canDownloadFromSrc = Boolean(active?.src);
   const canUploadToCloud = Boolean(active?.isLexeeGenerated);
+
+  const eyebrowLabel =
+    hasMultiple && !showPreview ? collectionTitle ?? "Documents" : collectionTitle ?? "Document preview";
+  const showEyebrow = collectionTitle !== "Sources";
 
   const handleDownloadTextDocument = () => {
     if (!active) return;
@@ -90,19 +92,18 @@ export function DocumentPreviewPanel({
             <button
               type="button"
               onClick={() => setView("list")}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-2 font-inter text-[13px] font-medium text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
               aria-label="Back to document list"
             >
               <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
-              Back
             </button>
           ) : null}
           <div className="min-w-0 flex-1">
-            <p className="truncate font-inter text-[11px] font-medium leading-4 text-neutral-500">
-              {hasMultiple && !showPreview
-                ? collectionTitle ?? "Documents"
-                : collectionTitle ?? "Document preview"}
-            </p>
+            {showEyebrow ? (
+              <p className="truncate font-inter text-[11px] font-medium leading-4 text-neutral-500">
+                {eyebrowLabel}
+              </p>
+            ) : null}
             <p className="truncate font-inter text-[14px] font-medium leading-5 text-neutral-950">
               {hasMultiple && !showPreview
                 ? "Select a document"

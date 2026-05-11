@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MoreHorizontal } from "lucide-react";
+import { use } from "react";
 
 import {
   CATEGORY_ORDER,
@@ -16,8 +17,8 @@ type PageProps = {
   params: Promise<{ category: string }>;
 };
 
-export default async function SkillsCategoryPage({ params }: PageProps) {
-  const { category: slug } = await params;
+export default function SkillsCategoryPage({ params }: PageProps) {
+  const { category: slug } = use(params);
   const category = slugToCategory(slug);
 
   if (!category) {

@@ -20,6 +20,7 @@ import type { FormEvent, KeyboardEvent } from "react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { MedicalSummaryDemoResponse } from "@/components/MedicalSummaryDemoResponse";
 import { DocumentPreviewPanel, type DocumentPreview } from "@/components/DocumentPreviewPanel";
+import { SAMPLE_DOCUMENT_PREVIEW } from "@/lib/sample-document-preview";
 import {
   GENERATION_PHASES,
   type GenerationProgress,
@@ -34,50 +35,8 @@ import {
   SUMMONS_SKILL_ID,
   shouldUseMedicalSummaryDemoResponse,
 } from "@/lib/skill-launches";
+import { buildLlmTurns, fetchLlmChatReply } from "@/lib/llm-chat-client";
 import { getResponse } from "@/lib/responses";
-
-const SUMMONS_DOCUMENT_BODY = `SUMMONS
-
-IN THE CIRCUIT COURT OF THE STATE OF FLORIDA
-IN AND FOR MIAMI-DADE COUNTY
-
-TYLER DURDEN,
-Plaintiff,
-
-v. Case No.: ___________
-
-JANE SMITH,
-Defendant.
-
-SUMMONS
-
-THE STATE OF FLORIDA:
-
-To Each Sheriff of the State:
-
-YOU ARE COMMANDED to serve this Summons and a copy of the Complaint in this action upon:
-
-JANE SMITH
-1458 West Palm Avenue
-Miami, Florida 33130
-
-A lawsuit has been filed against you. You are required to serve a written response to the Complaint on the Plaintiff's attorney whose name and address are:
-
-Michael A. Carter, Esq.
-Carter & Reynolds, P.A.
-225 Brickell Avenue, Suite 1800
-Miami, Florida 33131
-Phone: (305) 555-4821
-Email: mcarter@carterreynolds.com
-
-You must serve your written response within twenty (20) days after service of this Summons upon you, exclusive of the day of service, and file the original response with the Clerk of this Court either before service on Plaintiff's attorney or immediately thereafter. If you fail to do so, a default may be entered against you for the relief demanded in the Complaint.`;
-
-const SAMPLE_DOCUMENT_PREVIEW: DocumentPreview = {
-  title: "Sample document",
-  subtitle: "PDF Document",
-  body: "",
-  src: "/sampledocument.pdf",
-};
 
 const MATTERS = [
   "Murdock v. Metro Health",
@@ -92,8 +51,14 @@ type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  presentation?: "medical_summary_demo" | "summons_document_demo";
+  presentation?:
+    | "medical_summary_demo"
+    | "summons_document_demo"
+    | "summons_skill_cards"
+    | "summons_additional_instructions";
 };
+
+type SummonsCategory = "MVA" | "Slip and Fall";
 
 const DUMMY_HISTORY_CONVERSATION: ChatMessage[] = [
   {
@@ -144,6 +109,26 @@ function HomeInner() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const generationAbortRef = useRef<AbortController | null>(null);
 
+  const normalisePrompt = (prompt: string) =>
+    prompt
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .replace(/[?.!,]+$/g, "");
+
+  const isSummonsRequestPrompt = (prompt: string) => {
+    const normalized = normalisePrompt(prompt);
+    return (
+      normalized === "i want to create a summons document for this matter" ||
+      normalized === "create a summons document for this matter"
+    );
+  };
+
+  useEffect(() => {
+    if (!documentPreviewOpen) return;
+    window.dispatchEvent(new CustomEvent("lexee:right-panel-opened"));
+  }, [documentPreviewOpen]);
+
   const resizeTextarea = (event: FormEvent<HTMLTextAreaElement>) => {
     const target = event.currentTarget;
     target.style.height = "0px";
@@ -163,6 +148,10 @@ function HomeInner() {
         matter.toLowerCase().includes(inlineMatterQuery.trim().toLowerCase()),
       ),
     [inlineMatterQuery],
+  );
+  const lastAssistantMessageIndex = useMemo(
+    () => messages.reduce((latest, msg, idx) => (msg.role === "assistant" ? idx : latest), -1),
+    [messages],
   );
 
   useEffect(() => {
@@ -280,6 +269,7 @@ function HomeInner() {
                 id: `launch-assistant-${Date.now()}`,
                 role: "assistant" as const,
                 content: SUMMONS_DEMO_RESPONSE,
+                presentation: "summons_additional_instructions" as const,
               }
             : {
                 id: `launch-assistant-${Date.now()}`,
@@ -362,19 +352,54 @@ function HomeInner() {
       return;
     }
 
-    const normalized = trimmed.toLowerCase();
+    const normalized = normalisePrompt(trimmed);
     const useMedicalSummaryDemo = shouldUseMedicalSummaryDemoResponse(trimmed);
+    const useSummonsSkillCards = isSummonsRequestPrompt(trimmed);
     const latestAssistantMessage = [...messages].reverse().find((msg) => msg.role === "assistant");
     const useSummonsDocumentDemo =
-      normalized === "no" && latestAssistantMessage?.content === SUMMONS_DEMO_RESPONSE;
-    const assistantReply =
-      useSummonsDocumentDemo
-        ? "Here is your Summons document"
-        : useMedicalSummaryDemo
-        ? ""
-        : normalized === "hi" && selectedMatter
+      normalized === "no" && latestAssistantMessage?.presentation === "summons_additional_instructions";
+    const useDevLlm = process.env.NEXT_PUBLIC_USE_LLM_CHAT === "true";
+
+    let assistantReply: string;
+    let presentation: ChatMessage["presentation"] | undefined;
+
+    if (useSummonsDocumentDemo) {
+      assistantReply = "Here is your Summons document";
+      presentation = "summons_document_demo";
+    } else if (useSummonsSkillCards) {
+      assistantReply =
+        "Absolutely — I can help with that. Please choose a Summons skill category:";
+      presentation = "summons_skill_cards";
+    } else if (useMedicalSummaryDemo) {
+      assistantReply = "";
+      presentation = "medical_summary_demo";
+    } else {
+      const cannedMatterHi =
+        normalized === "hi" && selectedMatter
           ? `We are in the context of ${selectedMatter}. How can I help you?`
-          : getResponse(trimmed);
+          : null;
+      presentation = undefined;
+      if (useDevLlm) {
+        try {
+          const turns = buildLlmTurns(messages, trimmed);
+          const llmText = await fetchLlmChatReply(turns, {
+            matter: selectedMatter,
+            signal: ac.signal,
+          });
+          assistantReply = llmText ?? cannedMatterHi ?? getResponse(trimmed);
+        } catch {
+          if (ac.signal.aborted) {
+            setIsGenerating(false);
+            setGenerationProgress(null);
+            generationAbortRef.current = null;
+            return;
+          }
+          assistantReply = cannedMatterHi ?? getResponse(trimmed);
+        }
+      } else {
+        assistantReply = cannedMatterHi ?? getResponse(trimmed);
+      }
+    }
 
     setMessages((prev) => [
       ...prev,
@@ -382,11 +407,7 @@ function HomeInner() {
         id: `${Date.now()}-assistant`,
         role: "assistant",
         content: assistantReply,
-        ...(useMedicalSummaryDemo
-          ? { presentation: "medical_summary_demo" as const }
-          : useSummonsDocumentDemo
-            ? { presentation: "summons_document_demo" as const }
-            : {}),
+        ...(presentation ? { presentation } : {}),
       },
     ]);
     setIsGenerating(false);
@@ -442,6 +463,24 @@ function HomeInner() {
     }
   };
 
+  const handleSummonsCategorySelect = (category: SummonsCategory) => {
+    if (isGenerating) return;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-user`,
+        role: "user",
+        content: `${category} summons skill`,
+      },
+      {
+        id: `${Date.now()}-assistant`,
+        role: "assistant",
+        content: `Great choice — I'll use the ${category} Summons skill. Do you have any additional instructions for me?`,
+        presentation: "summons_additional_instructions",
+      },
+    ]);
+  };
+
   const openDocumentPreview = (
     docs: DocumentPreview[],
     title: string,
@@ -456,11 +495,10 @@ function HomeInner() {
   };
 
   const openMedicalSummaryCitationPreview = (
-    _docs: DocumentPreview[],
-    _title: string,
-    _subtitle?: string,
+    ..._unused: Parameters<typeof openDocumentPreview>
   ) => {
-    openDocumentPreview([SAMPLE_DOCUMENT_PREVIEW], "Citation document", "Source document");
+    void _unused;
+    openDocumentPreview([{ ...SAMPLE_DOCUMENT_PREVIEW }], "Citation document", "Source document");
   };
 
   const chatStarted = messages.length > 0;
@@ -471,8 +509,8 @@ function HomeInner() {
         <div
         ref={matterMenuRef}
         className={[
-          "relative z-20 flex w-full shrink-0 justify-start bg-[var(--background)]",
-          chatStarted ? "border-b border-neutral-200 pb-3 pt-3" : "pb-2 pt-2",
+          "sticky top-0 z-20 flex w-full shrink-0 justify-start bg-[var(--background)]",
+          chatStarted ? "border-b border-neutral-200 pb-3 pt-3" : "pb-8 pt-2",
         ].join(" ")}
       >
         <div className="relative">
@@ -561,7 +599,7 @@ function HomeInner() {
         </div>
 
       {!chatStarted ? (
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center pb-16 pt-4">
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center pb-16 pt-10">
           <div className="flex flex-col items-center gap-12 px-0">
             <div className="flex items-center justify-center gap-3">
               <Image
@@ -571,7 +609,7 @@ function HomeInner() {
                 height={32}
                 priority
               />
-              <h1 className="font-spectral text-[32px] leading-none tracking-[-0.02em] text-neutral-950">
+              <h1 className="font-spectral text-[36px] leading-none tracking-[-0.02em] text-neutral-950">
                 Good Evening Matt!
               </h1>
             </div>
@@ -635,7 +673,7 @@ function HomeInner() {
               </div>
 
               {!selectedMatter ? (
-                <div className="mt-3 rounded-xl border border-violet-200/80 bg-violet-50/70 p-3 shadow-[0_1px_2px_rgba(40,38,64,0.10)]">
+                <div className="mt-12 rounded-xl border border-violet-200/80 bg-violet-50/70 p-3 shadow-[0_1px_2px_rgba(40,38,64,0.10)]">
                   <p className="text-[12px] leading-4 text-neutral-700">
                     Search and select a matter here, or prompt directly in chat and we will infer the matter context.
                   </p>
@@ -715,7 +753,7 @@ function HomeInner() {
           </div>
         </div>
       ) : (
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col pt-4">
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col pt-10">
           <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3 pb-4 pt-2">
             {messages.map((chatMessage, messageIndex) =>
                 chatMessage.role === "user" ? (
@@ -753,9 +791,19 @@ function HomeInner() {
                     </div>
                   </div>
                 ) : chatMessage.presentation === "medical_summary_demo" ? (
-                  <div key={chatMessage.id} className="max-w-[90%]">
-                    <MedicalSummaryDemoResponse onCitationClick={openMedicalSummaryCitationPreview} />
-                    <div className="mt-1 flex items-center gap-1 text-neutral-500">
+                  <div key={chatMessage.id} className="group max-w-[90%]">
+                    <MedicalSummaryDemoResponse
+                      onCitationClick={openMedicalSummaryCitationPreview}
+                      onSourcesClick={openDocumentPreview}
+                    />
+                    <div
+                      className={[
+                        "mt-2 flex h-6 items-center gap-1 text-neutral-500 transition-opacity",
+                        messageIndex === lastAssistantMessageIndex
+                          ? "opacity-100"
+                          : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
+                      ].join(" ")}
+                    >
                       <button
                         type="button"
                         aria-label="Copy response"
@@ -786,23 +834,78 @@ function HomeInner() {
                       </button>
                     </div>
                   </div>
+                ) : chatMessage.presentation === "summons_skill_cards" ? (
+                  <div key={chatMessage.id} className="group max-w-[90%]">
+                    <p className="whitespace-pre-wrap text-response-md text-neutral-950">{chatMessage.content}</p>
+                    <div className="mt-3 flex w-full gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSummonsCategorySelect("MVA")}
+                        className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-left transition-colors hover:border-violet-300 hover:bg-violet-50"
+                      >
+                        <span className="text-body-md font-medium text-neutral-950">Summons</span>
+                        <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-medium leading-4 text-violet-700">
+                          MVA
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSummonsCategorySelect("Slip and Fall")}
+                        className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-left transition-colors hover:border-violet-300 hover:bg-violet-50"
+                      >
+                        <span className="text-body-md font-medium text-neutral-950">Summons</span>
+                        <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-medium leading-4 text-violet-700">
+                          Slip and Fall
+                        </span>
+                      </button>
+                    </div>
+                    <div
+                      className={[
+                        "mt-1 flex h-6 items-center gap-1 text-neutral-500 transition-opacity",
+                        messageIndex === lastAssistantMessageIndex
+                          ? "opacity-100"
+                          : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
+                      ].join(" ")}
+                    >
+                      <button
+                        type="button"
+                        aria-label="Copy response"
+                        onClick={() => {
+                          void handleCopyMessage(chatMessage.content);
+                        }}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Retry response"
+                        onClick={() => handleRetryResponse(messageIndex)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Share response"
+                        onClick={() => {
+                          void handleShareMessage(chatMessage.content);
+                        }}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <Share2 className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <div key={chatMessage.id} className="max-w-[90%]">
+                  <div key={chatMessage.id} className="group max-w-[90%]">
                     <p className="whitespace-pre-wrap text-response-md text-neutral-950">{chatMessage.content}</p>
                     {chatMessage.presentation === "summons_document_demo" ? (
                       <button
                         type="button"
                         onClick={() =>
                           openDocumentPreview(
-                            [
-                              {
-                                title: `Summons for ${selectedMatter ?? "this matter"}`,
-                                subtitle: "PDF Document",
-                                body: SUMMONS_DOCUMENT_BODY,
-                                editable: true,
-                                isLexeeGenerated: true,
-                              },
-                            ],
+                            [{ ...SAMPLE_DOCUMENT_PREVIEW, editable: true, isLexeeGenerated: true }],
                             "Summons document",
                             "Generated draft",
                           )
@@ -832,7 +935,14 @@ function HomeInner() {
                         </div>
                       </button>
                     ) : null}
-                    <div className="mt-1 flex items-center gap-1 text-neutral-500">
+                    <div
+                      className={[
+                        "mt-1 flex h-6 items-center gap-1 text-neutral-500 transition-opacity",
+                        messageIndex === lastAssistantMessageIndex
+                          ? "opacity-100"
+                          : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
+                      ].join(" ")}
+                    >
                       <button
                         type="button"
                         aria-label="Copy response"
@@ -865,6 +975,17 @@ function HomeInner() {
                   </div>
                 ),
             )}
+            {messages.length > 0 ? (
+              <div className="mt-3">
+                <Image
+                  src="/lexee-symbol.svg"
+                  alt="Lexee"
+                  width={24}
+                  height={24}
+                  className="h-6 w-6"
+                />
+              </div>
+            ) : null}
             {isGenerating && generationProgress ? (
               <div className="flex max-w-[min(90%,42rem)] items-start gap-2 text-response-md text-neutral-700">
                 {showThinkingGif ? (

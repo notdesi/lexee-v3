@@ -22,7 +22,7 @@ export default async function SkillsCategoryPage({ params }: PageProps) {
 
   if (!category) {
     return (
-      <div className="flex min-h-full flex-1 flex-col bg-[var(--background)] px-8 py-8">
+      <div className="flex h-[100dvh] min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--background)] px-8 py-8">
         <div className="mx-auto w-full max-w-5xl">
           <p className="text-body-md text-neutral-600">This skills category could not be found.</p>
           <Link
@@ -39,7 +39,7 @@ export default async function SkillsCategoryPage({ params }: PageProps) {
   const skills: Skill[] = skillsSortedByCreatedDesc(SKILLS.filter((s) => s.category === category));
 
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-[var(--background)] px-8 py-8">
+    <div className="flex h-[100dvh] min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--background)] px-8 py-8">
       <div className="mx-auto w-full max-w-5xl">
         <div className="flex flex-col gap-2">
           <Link

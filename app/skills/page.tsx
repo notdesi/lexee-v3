@@ -33,7 +33,7 @@ export default function SkillsPage() {
   }, [query]);
 
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-[var(--background)] px-8 py-8">
+    <div className="flex h-[100dvh] min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--background)] px-8 py-8">
       <div className="mx-auto w-full max-w-5xl">
         <div className="flex items-start justify-between gap-4">
           <div>

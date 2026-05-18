@@ -17,6 +17,10 @@ import {
   SunMoon,
 } from "lucide-react";
 import { SearchModal } from "@/components/SearchModal";
+import {
+  HISTORY_CHAT_ENTRIES,
+  SHARED_HISTORY_CONVERSATION_ID,
+} from "@/lib/history-chat";
 
 type SidePanelItem = {
   key: string;
@@ -24,11 +28,6 @@ type SidePanelItem = {
   icon: ComponentType<{ className?: string; strokeWidth?: number }>;
   onClick?: () => void;
 };
-
-/** Must match `app/page.tsx` history / `lexee:open-history-conversation` ids. */
-const HISTORY_CHAT_ENTRIES: { id: string; label: string }[] = [
-  { id: "medical-summary-demo", label: "Create Medical summary" },
-];
 
 export function SidePanel() {
   const [collapsed, setCollapsed] = useState(false);
@@ -99,11 +98,18 @@ export function SidePanel() {
   useEffect(() => {
     const onActiveConversation = (event: Event) => {
       const id = (event as CustomEvent<{ conversationId: string | null }>).detail?.conversationId;
-      setSelectedHistoryConversationId(id ?? null);
+      if (id === null) setSelectedHistoryConversationId(null);
+    };
+    const onHistoryNavSelected = (event: Event) => {
+      const navId = (event as CustomEvent<{ navId?: string }>).detail?.navId;
+      if (navId) setSelectedHistoryConversationId(navId);
     };
     window.addEventListener("lexee:active-conversation-changed", onActiveConversation);
-    return () =>
+    window.addEventListener("lexee:history-nav-selected", onHistoryNavSelected);
+    return () => {
       window.removeEventListener("lexee:active-conversation-changed", onActiveConversation);
+      window.removeEventListener("lexee:history-nav-selected", onHistoryNavSelected);
+    };
   }, []);
 
   useEffect(() => {
@@ -275,12 +281,12 @@ export function SidePanel() {
                     if (pathname === "/") {
                       window.dispatchEvent(
                         new CustomEvent("lexee:open-history-conversation", {
-                          detail: { conversationId: entry.id },
+                          detail: { conversationId: SHARED_HISTORY_CONVERSATION_ID },
                         }),
                       );
                       return;
                     }
-                    window.sessionStorage.setItem("lexee:pending-history-conversation", entry.id);
+                    window.sessionStorage.setItem("lexee:pending-history-nav", entry.id);
                     router.push("/");
                   }}
                   className={[

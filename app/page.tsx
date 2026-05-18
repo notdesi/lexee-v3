@@ -31,13 +31,21 @@ import {
   MEDICAL_SUMMARY_SKILL_ID,
   MEDICAL_SUMMARY_DEMO_PROMPT,
   MEDICAL_SUMMARY_DEMO_MATTER,
+  MEDICAL_SUMMARY_ADDITIONAL_INSTRUCTIONS_RESPONSE,
+  SUMMONS_ADDITIONAL_INSTRUCTIONS_RESPONSE,
   SUMMONS_DEMO_PROMPT,
-  SUMMONS_DEMO_RESPONSE,
   SUMMONS_SKILL_ID,
-  shouldUseMedicalSummaryDemoResponse,
+  isMedicalSummaryRequestPrompt,
+  isSummonsDocumentRequestPrompt,
+  shouldShowMedicalSummaryDemo,
+  shouldShowSummonsDocumentDemo,
 } from "@/lib/skill-launches";
 import { buildLlmTurns, fetchLlmChatReply } from "@/lib/llm-chat-client";
 import { getResponse } from "@/lib/responses";
+import {
+  isHistoryNavId,
+  SHARED_HISTORY_CONVERSATION_ID,
+} from "@/lib/history-chat";
 
 const MATTERS = [
   "Murdock v. Metro Health",
@@ -45,8 +53,11 @@ const MATTERS = [
   "State Bar Compliance - Q2",
   "Acme Insurance Intake",
   "Nelson & Murdock Retainer Draft",
+  "Geramita vs Ayal",
   MEDICAL_SUMMARY_DEMO_MATTER,
 ];
+
+const DEFAULT_SELECTED_MATTER = MATTERS[0];
 
 type ChatMessage = {
   id: string;
@@ -56,35 +67,95 @@ type ChatMessage = {
     | "medical_summary_demo"
     | "summons_document_demo"
     | "summons_skill_cards"
-    | "summons_additional_instructions";
+    | "summons_additional_instructions"
+    | "medical_summary_additional_instructions";
 };
 
 type SummonsCategory = "MVA" | "Slip and Fall";
 
-const DUMMY_HISTORY_CONVERSATION: ChatMessage[] = [
-  {
-    id: "history-demo-user-1",
-    role: "user",
-    content: "Create a medical summary for Tyler Durden's accident treatment timeline.",
+type HistoryConversation = {
+  matter: string | null;
+  messages: ChatMessage[];
+};
+
+const HISTORY_CONVERSATIONS: Record<string, HistoryConversation> = {
+  "medical-summary-demo": {
+    matter: MEDICAL_SUMMARY_DEMO_MATTER,
+    messages: [
+      {
+        id: "history-demo-user-1",
+        role: "user",
+        content: "Create a medical summary for Tyler Durden's accident treatment timeline.",
+      },
+      {
+        id: "history-demo-assistant-1",
+        role: "assistant",
+        content:
+          "Absolutely. I can prepare a structured medical summary covering the accident details, emergency care, diagnostics, follow-up treatment, and current condition.",
+      },
+      {
+        id: "history-demo-user-2",
+        role: "user",
+        content: "Include MRI findings and specialist recommendations.",
+      },
+      {
+        id: "history-demo-assistant-2",
+        role: "assistant",
+        content: "",
+        presentation: "medical_summary_demo",
+      },
+    ],
   },
-  {
-    id: "history-demo-assistant-1",
-    role: "assistant",
-    content:
-      "Absolutely. I can prepare a structured medical summary covering the accident details, emergency care, diagnostics, follow-up treatment, and current condition.",
+  "summons-geramita-ayal": {
+    matter: "Geramita vs Ayal",
+    messages: [
+      {
+        id: "history-summons-user-1",
+        role: "user",
+        content: "Create a summons for Geramita vs Ayal.",
+      },
+      {
+        id: "history-summons-assistant-1",
+        role: "assistant",
+        content: SUMMONS_ADDITIONAL_INSTRUCTIONS_RESPONSE,
+        presentation: "summons_additional_instructions",
+      },
+    ],
   },
-  {
-    id: "history-demo-user-2",
-    role: "user",
-    content: "Include MRI findings and specialist recommendations.",
+  "case-knowledge-doubt": {
+    matter: "Murdock v. Metro Health",
+    messages: [
+      {
+        id: "history-knowledge-user-1",
+        role: "user",
+        content:
+          "I have a doubt regarding case knowledge — can you confirm which filings are on record for Murdock v. Metro Health?",
+      },
+      {
+        id: "history-knowledge-assistant-1",
+        role: "assistant",
+        content:
+          "I can help with that. From the matter workspace I see the operative complaint, defendant's answer, and two discovery orders. Tell me which filing or date range you want to verify and I will cite the source documents.",
+      },
+    ],
   },
-  {
-    id: "history-demo-assistant-2",
-    role: "assistant",
-    content: "",
-    presentation: "medical_summary_demo",
+  "cloudlex-features": {
+    matter: null,
+    messages: [
+      {
+        id: "history-cloudlex-user-1",
+        role: "user",
+        content: "Explore features on CloudLex.",
+      },
+      {
+        id: "history-cloudlex-assistant-1",
+        role: "assistant",
+        content:
+          "CloudLex connects matter management, calendaring, document automation, and billing in one workspace. I can walk you through intake workflows, deadline rules, or how Lexee skills plug into an active matter — which area should we start with?",
+      },
+    ],
   },
-];
+};
 
 const matterEase = [0.22, 1, 0.36, 1] as const;
 
@@ -125,7 +196,7 @@ function HomeInner() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showThinkingGif, setShowThinkingGif] = useState(true);
-  const [selectedMatter, setSelectedMatter] = useState<string | null>(null);
+  const [selectedMatter, setSelectedMatter] = useState<string | null>(DEFAULT_SELECTED_MATTER);
   const [matterMenuOpen, setMatterMenuOpen] = useState(false);
   const [matterQuery, setMatterQuery] = useState("");
   const [inlineMatterMenuOpen, setInlineMatterMenuOpen] = useState(false);
@@ -148,14 +219,6 @@ function HomeInner() {
       .toLowerCase()
       .replace(/\s+/g, " ")
       .replace(/[?.!,]+$/g, "");
-
-  const isSummonsRequestPrompt = (prompt: string) => {
-    const normalized = normalisePrompt(prompt);
-    return (
-      normalized === "i want to create a summons document for this matter" ||
-      normalized === "create a summons document for this matter"
-    );
-  };
 
   useEffect(() => {
     if (!documentPreviewOpen) return;
@@ -195,7 +258,7 @@ function HomeInner() {
       setMessages([]);
       setIsGenerating(false);
       setGenerationProgress(null);
-      setSelectedMatter(null);
+      setSelectedMatter(DEFAULT_SELECTED_MATTER);
       setMatterMenuOpen(false);
       setMatterQuery("");
       setInlineMatterMenuOpen(false);
@@ -215,13 +278,16 @@ function HomeInner() {
 
   useEffect(() => {
     const loadHistoryConversation = () => {
+      const conversation = HISTORY_CONVERSATIONS[SHARED_HISTORY_CONVERSATION_ID];
+      if (!conversation) return;
+
       generationAbortRef.current?.abort();
       generationAbortRef.current = null;
       setMessage("");
-      setMessages(DUMMY_HISTORY_CONVERSATION);
+      setMessages(conversation.messages);
       setIsGenerating(false);
       setGenerationProgress(null);
-      setSelectedMatter(MEDICAL_SUMMARY_DEMO_MATTER);
+      setSelectedMatter(conversation.matter ?? DEFAULT_SELECTED_MATTER);
       setMatterMenuOpen(false);
       setMatterQuery("");
       setInlineMatterMenuOpen(false);
@@ -233,20 +299,21 @@ function HomeInner() {
       setDocumentCollectionSubtitle(undefined);
       window.dispatchEvent(
         new CustomEvent("lexee:active-conversation-changed", {
-          detail: { conversationId: "medical-summary-demo" },
+          detail: { conversationId: SHARED_HISTORY_CONVERSATION_ID },
         }),
       );
     };
 
-    const pendingConversation = window.sessionStorage.getItem("lexee:pending-history-conversation");
-    if (pendingConversation === "medical-summary-demo") {
+    const pendingNavId = window.sessionStorage.getItem("lexee:pending-history-nav");
+    if (pendingNavId && isHistoryNavId(pendingNavId)) {
       loadHistoryConversation();
-      window.sessionStorage.removeItem("lexee:pending-history-conversation");
+      window.dispatchEvent(
+        new CustomEvent("lexee:history-nav-selected", { detail: { navId: pendingNavId } }),
+      );
+      window.sessionStorage.removeItem("lexee:pending-history-nav");
     }
 
-    const handleHistoryConversationOpen = (event: Event) => {
-      const customEvent = event as CustomEvent<{ conversationId?: string }>;
-      if (customEvent.detail?.conversationId !== "medical-summary-demo") return;
+    const handleHistoryConversationOpen = () => {
       loadHistoryConversation();
     };
 
@@ -278,7 +345,9 @@ function HomeInner() {
           content: isSummonsLaunch ? SUMMONS_DEMO_PROMPT : MEDICAL_SUMMARY_DEMO_PROMPT,
         },
       ]);
-      setSelectedMatter(isMedicalSummaryLaunch ? MEDICAL_SUMMARY_DEMO_MATTER : null);
+      setSelectedMatter(
+        isMedicalSummaryLaunch ? MEDICAL_SUMMARY_DEMO_MATTER : DEFAULT_SELECTED_MATTER,
+      );
       /* Keep ?skill= in the URL until generation finishes — immediate router.replace here
        * can reset the suspense/searchParams subtree and drop isGenerating / generationProgress. */
       setIsGenerating(true);
@@ -311,14 +380,14 @@ function HomeInner() {
             ? {
                 id: `launch-assistant-${Date.now()}`,
                 role: "assistant" as const,
-                content: SUMMONS_DEMO_RESPONSE,
+                content: SUMMONS_ADDITIONAL_INSTRUCTIONS_RESPONSE,
                 presentation: "summons_additional_instructions" as const,
               }
             : {
                 id: `launch-assistant-${Date.now()}`,
                 role: "assistant" as const,
-                content: "",
-                presentation: "medical_summary_demo" as const,
+                content: MEDICAL_SUMMARY_ADDITIONAL_INSTRUCTIONS_RESPONSE,
+                presentation: "medical_summary_additional_instructions" as const,
               },
         ]);
         setIsGenerating(false);
@@ -365,7 +434,7 @@ function HomeInner() {
     const ac = new AbortController();
     generationAbortRef.current = ac;
 
-    if (shouldUseMedicalSummaryDemoResponse(trimmed)) {
+    if (isMedicalSummaryRequestPrompt(trimmed)) {
       setSelectedMatter(MEDICAL_SUMMARY_DEMO_MATTER);
     }
 
@@ -396,11 +465,17 @@ function HomeInner() {
     }
 
     const normalized = normalisePrompt(trimmed);
-    const useMedicalSummaryDemo = shouldUseMedicalSummaryDemoResponse(trimmed);
-    const useSummonsSkillCards = isSummonsRequestPrompt(trimmed);
     const latestAssistantMessage = [...messages].reverse().find((msg) => msg.role === "assistant");
-    const useSummonsDocumentDemo =
-      normalized === "no" && latestAssistantMessage?.presentation === "summons_additional_instructions";
+    const useSummonsDocumentDemo = shouldShowSummonsDocumentDemo(
+      trimmed,
+      latestAssistantMessage?.presentation,
+    );
+    const useSummonsAdditionalInstructions = isSummonsDocumentRequestPrompt(trimmed);
+    const useMedicalSummaryDemo = shouldShowMedicalSummaryDemo(
+      trimmed,
+      latestAssistantMessage?.presentation,
+    );
+    const useMedicalSummaryAdditionalInstructions = isMedicalSummaryRequestPrompt(trimmed);
     const useDevLlm = process.env.NEXT_PUBLIC_USE_LLM_CHAT === "true";
 
     let assistantReply: string;
@@ -409,13 +484,15 @@ function HomeInner() {
     if (useSummonsDocumentDemo) {
       assistantReply = "Here is your Summons document";
       presentation = "summons_document_demo";
-    } else if (useSummonsSkillCards) {
-      assistantReply =
-        "Absolutely — I can help with that. Please choose a Summons skill category:";
-      presentation = "summons_skill_cards";
+    } else if (useSummonsAdditionalInstructions) {
+      assistantReply = SUMMONS_ADDITIONAL_INSTRUCTIONS_RESPONSE;
+      presentation = "summons_additional_instructions";
     } else if (useMedicalSummaryDemo) {
       assistantReply = "";
       presentation = "medical_summary_demo";
+    } else if (useMedicalSummaryAdditionalInstructions) {
+      assistantReply = MEDICAL_SUMMARY_ADDITIONAL_INSTRUCTIONS_RESPONSE;
+      presentation = "medical_summary_additional_instructions";
     } else {
       const cannedMatterHi =
         normalized === "hi" && selectedMatter
@@ -547,12 +624,12 @@ function HomeInner() {
   const chatStarted = messages.length > 0;
 
   return (
-    <div className="flex min-h-full w-full flex-1 bg-[var(--background)]">
-      <div className="flex min-h-full min-w-0 flex-1 flex-col pl-4 pr-6">
+    <div className="flex h-[100dvh] min-h-0 w-full min-w-0 flex-1 flex-row overflow-hidden bg-[var(--background)]">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pl-4">
         <div
         ref={matterMenuRef}
         className={[
-          "sticky top-0 z-20 flex w-full shrink-0 justify-start bg-[var(--background)]",
+          "z-20 flex w-full shrink-0 justify-start bg-[var(--background)]",
           chatStarted ? "border-b border-[color:var(--chat-outline)] pb-3 pt-3" : "pb-8 pt-2",
         ].join(" ")}
       >
@@ -643,8 +720,10 @@ function HomeInner() {
         </div>
         </div>
 
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {!chatStarted ? (
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center pb-16 pt-10">
+        <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto">
+        <div className="mx-auto w-full max-w-3xl pb-16">
           <div className="flex flex-col items-center gap-12 px-0">
             <div className="flex items-center justify-center gap-3">
               <Image
@@ -811,9 +890,11 @@ function HomeInner() {
             </div>
           </div>
         </div>
+        </div>
       ) : (
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col pt-10">
-          <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3 pb-4 pt-2">
+        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-col gap-3 px-4 pb-4 pt-10">
             {messages.map((chatMessage, messageIndex) =>
                 chatMessage.role === "user" ? (
                   <div key={chatMessage.id} className="group ml-auto max-w-[80%]">
@@ -856,7 +937,7 @@ function HomeInner() {
                     </div>
                   </div>
                 ) : chatMessage.presentation === "medical_summary_demo" ? (
-                  <div key={chatMessage.id} className="group max-w-[90%]">
+                  <div key={chatMessage.id} className="group w-full max-w-2xl">
                     <MedicalSummaryDemoResponse
                       onCitationClick={openMedicalSummaryCitationPreview}
                       onSourcesClick={openDocumentPreview}
@@ -1070,9 +1151,10 @@ function HomeInner() {
             ) : null}
             <div ref={messagesEndRef} />
           </div>
+          </div>
 
-          <div className="sticky bottom-0 z-10 shrink-0 bg-[var(--background)] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-            <div className="mx-auto flex w-full max-w-2xl flex-col">
+          <div className="z-10 w-full shrink-0 bg-[var(--background)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+            <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-col">
             <AnimatePresence initial={false}>
               {selectedMatter ? (
                 <motion.div
@@ -1148,6 +1230,7 @@ function HomeInner() {
           </div>
         </div>
       )}
+        </div>
       </div>
 
       {documentPreviewOpen ? (
@@ -1172,7 +1255,7 @@ function HomeInner() {
 
 export default function Home() {
   return (
-    <div className="flex min-h-full flex-1 flex-col">
+    <div className="flex h-[100dvh] min-h-0 flex-1 flex-col">
       <Suspense fallback={null}>
         <HomeInner />
       </Suspense>

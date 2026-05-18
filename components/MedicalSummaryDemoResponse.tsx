@@ -18,7 +18,7 @@ type MedicalSummaryDemoResponseProps = {
 
 export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: MedicalSummaryDemoResponseProps) {
   return (
-    <article className="max-w-[90%] text-response-md text-neutral-950">
+    <article className="w-full text-response-md text-neutral-950">
       <h2 className="font-spectral text-[18px] font-semibold leading-snug tracking-tight text-neutral-950">
         MEDICAL SUMMARY
       </h2>

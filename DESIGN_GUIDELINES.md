@@ -2,7 +2,7 @@
 
 > This file is generated from `app/globals.css` and class usage in `app/` + `components/`. Do not edit manually.
 
-- Generated at: `2026-05-18T04:48:58.654Z`
+- Generated at: `2026-05-18T05:23:53.465Z`
 - Regenerate: `npm run design:guidelines`
 
 ## Purpose
@@ -200,17 +200,17 @@
 - `pl-4` (used 2x)
 - `pl-6` (used 6x)
 - `pr-3` (used 1x)
-- `pr-6` (used 2x)
-- `pt-2` (used 3x)
+- `pr-6` (used 1x)
+- `pt-2` (used 2x)
 - `pt-3` (used 2x)
 - `pt-4` (used 1x)
 - `pt-6` (used 1x)
-- `pt-10` (used 3x)
+- `pt-10` (used 2x)
 - `px-0` (used 2x)
 - `px-1` (used 2x)
 - `px-2` (used 27x)
 - `px-3` (used 14x)
-- `px-4` (used 8x)
+- `px-4` (used 10x)
 - `px-6` (used 2x)
 - `px-8` (used 6x)
 - `py-0.5` (used 2x)

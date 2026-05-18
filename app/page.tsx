@@ -16,6 +16,7 @@ import {
   Share2,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import type { FormEvent, KeyboardEvent } from "react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { MedicalSummaryDemoResponse } from "@/components/MedicalSummaryDemoResponse";
@@ -84,6 +85,38 @@ const DUMMY_HISTORY_CONVERSATION: ChatMessage[] = [
     presentation: "medical_summary_demo",
   },
 ];
+
+const matterEase = [0.22, 1, 0.36, 1] as const;
+
+function MatterTextCrossfade({
+  text,
+  className,
+  display = "block",
+}: {
+  text: string;
+  className?: string;
+  display?: "block" | "inline-block";
+}) {
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.span
+        key={text}
+        initial={{ opacity: 0, y: display === "block" ? 5 : 3 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: display === "block" ? -5 : -3 }}
+        transition={{ duration: 0.22, ease: matterEase }}
+        className={[
+          display === "block" ? "block truncate" : "inline-block",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        {text}
+      </motion.span>
+    </AnimatePresence>
+  );
+}
 
 function HomeInner() {
   const router = useRouter();
@@ -167,6 +200,11 @@ function HomeInner() {
       setMatterQuery("");
       setInlineMatterMenuOpen(false);
       setInlineMatterQuery("");
+      window.dispatchEvent(
+        new CustomEvent("lexee:active-conversation-changed", {
+          detail: { conversationId: null as string | null },
+        }),
+      );
     };
 
     window.addEventListener("lexee:new-chat", resetChat);
@@ -193,6 +231,11 @@ function HomeInner() {
       setDocumentActiveIndex(0);
       setDocumentCollectionTitle(undefined);
       setDocumentCollectionSubtitle(undefined);
+      window.dispatchEvent(
+        new CustomEvent("lexee:active-conversation-changed", {
+          detail: { conversationId: "medical-summary-demo" },
+        }),
+      );
     };
 
     const pendingConversation = window.sessionStorage.getItem("lexee:pending-history-conversation");
@@ -510,17 +553,19 @@ function HomeInner() {
         ref={matterMenuRef}
         className={[
           "sticky top-0 z-20 flex w-full shrink-0 justify-start bg-[var(--background)]",
-          chatStarted ? "border-b border-neutral-200 pb-3 pt-3" : "pb-8 pt-2",
+          chatStarted ? "border-b border-[color:var(--chat-outline)] pb-3 pt-3" : "pb-8 pt-2",
         ].join(" ")}
       >
         <div className="relative">
           <button
             type="button"
             onClick={() => setMatterMenuOpen((open) => !open)}
-            className="inline-flex max-w-[420px] items-center gap-2 rounded-md px-1 py-1 text-left text-body-md text-neutral-800 hover:bg-violet-50 hover:text-neutral-950"
+            className="inline-flex min-w-0 max-w-[420px] items-center gap-2 rounded-md px-1 py-1 text-left text-body-md text-neutral-800 hover:bg-violet-50 hover:text-neutral-950"
             aria-label="Select matter"
           >
-            <span className="truncate">{selectedMatter ?? "No matter selected"}</span>
+            <span className="min-w-0 flex-1 overflow-hidden text-left">
+              <MatterTextCrossfade text={selectedMatter ?? "No matter selected"} />
+            </span>
             <ChevronDown
               className={[
                 "h-4 w-4 shrink-0 text-neutral-700 transition-transform",
@@ -531,8 +576,8 @@ function HomeInner() {
           </button>
 
           {matterMenuOpen ? (
-            <div className="absolute left-0 mt-2 w-[420px] rounded-xl border border-violet-200 bg-neutral-50 p-2 shadow-[0_12px_28px_rgba(40,38,64,0.18)]">
-              <div className="mb-2 flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
+            <div className="absolute left-0 mt-2 w-[420px] rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]">
+              <div className="mb-2 flex items-center gap-2 rounded-lg border border-[color:var(--chat-outline-accent)] bg-violet-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
                 <Search className="h-4 w-4 text-neutral-500" strokeWidth={1.75} />
                 <input
                   type="text"
@@ -614,18 +659,32 @@ function HomeInner() {
               </h1>
             </div>
 
-            <div className="w-full max-w-2xl space-y-0">
-              {selectedMatter ? (
-                <div className="rounded-t-xl border border-b-0 border-violet-200 bg-violet-50 px-3 py-2">
-                  <p className="text-[12px] leading-4 text-neutral-800">
-                    Matter selected: <span className="text-neutral-950">{selectedMatter}</span>
-                  </p>
-                </div>
-              ) : null}
+            <div className="flex w-full max-w-2xl flex-col">
+              <AnimatePresence initial={false}>
+                {selectedMatter ? (
+                  <motion.div
+                    key="matter-strip-empty-state"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22, ease: matterEase }}
+                    className="rounded-t-xl border border-b-0 border-[color:var(--chat-outline-accent)] bg-violet-50 px-3 py-2"
+                  >
+                    <p className="text-[12px] leading-4 text-neutral-800">
+                      Matter selected:{" "}
+                      <MatterTextCrossfade
+                        text={selectedMatter}
+                        display="inline-block"
+                        className="text-neutral-950"
+                      />
+                    </p>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
 
               <div
                 className={[
-                  "rounded-xl border border-neutral-200/80 bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-sm",
+                  "rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-subtle)]",
                   selectedMatter ? "rounded-b-xl rounded-t-none border-t-0" : "",
                 ].join(" ")}
               >
@@ -673,13 +732,13 @@ function HomeInner() {
               </div>
 
               {!selectedMatter ? (
-                <div className="mt-12 rounded-xl border border-violet-200/80 bg-violet-50/70 p-3 shadow-[0_1px_2px_rgba(40,38,64,0.10)]">
+                <div className="mt-8 rounded-xl border border-[color:var(--chat-outline-accent)] bg-violet-50/70 p-3 shadow-[var(--shadow-card)]">
                   <p className="text-[12px] leading-4 text-neutral-700">
                     Search and select a matter here, or prompt directly in chat and we will infer the matter context.
                   </p>
 
                   <div className="relative mt-2" ref={inlineMatterMenuRef}>
-                    <div className="flex items-center gap-2 rounded-lg border border-violet-300/70 bg-neutral-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
+                    <div className="flex items-center gap-2 rounded-lg border border-[color:var(--chat-outline)] bg-neutral-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
                       <Search className="h-4 w-4 text-neutral-500" strokeWidth={1.75} />
                       <input
                         type="text"
@@ -695,7 +754,7 @@ function HomeInner() {
                     </div>
 
                     {inlineMatterMenuOpen ? (
-                      <div className="absolute bottom-full left-0 z-30 mb-2 w-full rounded-xl border border-violet-200 bg-neutral-50 p-2 shadow-[0_12px_28px_rgba(40,38,64,0.18)]">
+                      <div className="absolute bottom-full left-0 z-30 mb-2 w-full rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]">
                         <div className="max-h-48 overflow-y-auto">
                           <button
                             type="button"
@@ -757,11 +816,17 @@ function HomeInner() {
           <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3 pb-4 pt-2">
             {messages.map((chatMessage, messageIndex) =>
                 chatMessage.role === "user" ? (
-                  <div key={chatMessage.id} className="ml-auto max-w-[80%]">
+                  <div key={chatMessage.id} className="group ml-auto max-w-[80%]">
                     <div className="ml-auto w-fit rounded-[6px] bg-neutral-200 px-[10px] py-1">
                       <p className="text-body-lg text-neutral-950">{chatMessage.content}</p>
                     </div>
-                    <div className="mt-1 flex items-center justify-end gap-1 text-neutral-500">
+                    <div
+                      className={[
+                        "mt-1 flex items-center justify-end gap-1 text-neutral-500 transition-opacity",
+                        "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
+                        "group-focus-within:opacity-100 group-focus-within:pointer-events-auto",
+                      ].join(" ")}
+                    >
                       <button
                         type="button"
                         aria-label="Retry message"
@@ -841,20 +906,20 @@ function HomeInner() {
                       <button
                         type="button"
                         onClick={() => handleSummonsCategorySelect("MVA")}
-                        className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-left transition-colors hover:border-violet-300 hover:bg-violet-50"
+                        className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 px-4 py-3 text-left transition-colors hover:border-[color:var(--chat-outline-accent)] hover:bg-violet-50"
                       >
                         <span className="text-body-md font-medium text-neutral-950">Summons</span>
-                        <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-medium leading-4 text-violet-700">
+                        <span className="inline-flex items-center rounded-full border border-[color:var(--chat-outline-accent)] bg-violet-50 px-2 py-1 text-[11px] font-medium leading-4 text-violet-700">
                           MVA
                         </span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleSummonsCategorySelect("Slip and Fall")}
-                        className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-left transition-colors hover:border-violet-300 hover:bg-violet-50"
+                        className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 px-4 py-3 text-left transition-colors hover:border-[color:var(--chat-outline-accent)] hover:bg-violet-50"
                       >
                         <span className="text-body-md font-medium text-neutral-950">Summons</span>
-                        <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-medium leading-4 text-violet-700">
+                        <span className="inline-flex items-center rounded-full border border-[color:var(--chat-outline-accent)] bg-violet-50 px-2 py-1 text-[11px] font-medium leading-4 text-violet-700">
                           Slip and Fall
                         </span>
                       </button>
@@ -910,7 +975,7 @@ function HomeInner() {
                             "Generated draft",
                           )
                         }
-                        className="mt-3 w-full rounded-xl border border-neutral-200 p-3 text-left transition-colors hover:border-violet-300"
+                        className="mt-3 w-full rounded-xl border border-[color:var(--chat-outline)] p-3 text-left transition-colors hover:border-[color:var(--chat-outline-accent)]"
                       >
                         <div className="flex items-start gap-3">
                           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-violet-700">
@@ -918,7 +983,12 @@ function HomeInner() {
                           </span>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-body-md font-medium text-neutral-950">
-                              Summons for {selectedMatter ?? "this matter"}
+                              Summons for{" "}
+                              <MatterTextCrossfade
+                                text={selectedMatter ?? "this matter"}
+                                display="inline-block"
+                                className="font-medium text-neutral-950"
+                              />
                             </p>
                             <p className="mt-0.5 text-[12px] leading-4 text-neutral-600">PDF Document</p>
                           </div>
@@ -975,17 +1045,6 @@ function HomeInner() {
                   </div>
                 ),
             )}
-            {messages.length > 0 ? (
-              <div className="mt-3">
-                <Image
-                  src="/lexee-symbol.svg"
-                  alt="Lexee"
-                  width={24}
-                  height={24}
-                  className="h-6 w-6"
-                />
-              </div>
-            ) : null}
             {isGenerating && generationProgress ? (
               <div className="flex max-w-[min(90%,42rem)] items-start gap-2 text-response-md text-neutral-700">
                 {showThinkingGif ? (
@@ -1012,19 +1071,33 @@ function HomeInner() {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="sticky bottom-0 z-10 shrink-0 border-t border-neutral-200/50 bg-[var(--background)] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-            <div className="mx-auto w-full max-w-2xl space-y-0">
-            {selectedMatter ? (
-              <div className="rounded-t-xl border border-b-0 border-violet-200 bg-violet-50 px-3 py-2">
-                <p className="text-[12px] leading-4 text-neutral-800">
-                  Matter selected: <span className="text-neutral-950">{selectedMatter}</span>
-                </p>
-              </div>
-            ) : null}
+          <div className="sticky bottom-0 z-10 shrink-0 bg-[var(--background)] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+            <div className="mx-auto flex w-full max-w-2xl flex-col">
+            <AnimatePresence initial={false}>
+              {selectedMatter ? (
+                <motion.div
+                  key="matter-strip-chat"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.22, ease: matterEase }}
+                  className="rounded-t-xl border border-b-0 border-[color:var(--chat-outline-accent)] bg-violet-50 px-3 py-2"
+                >
+                  <p className="text-[12px] leading-4 text-neutral-800">
+                    Matter selected:{" "}
+                    <MatterTextCrossfade
+                      text={selectedMatter}
+                      display="inline-block"
+                      className="text-neutral-950"
+                    />
+                  </p>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
 
             <div
               className={[
-                "rounded-xl border border-neutral-200/80 bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-sm",
+                "rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-subtle)]",
                 selectedMatter ? "rounded-b-xl rounded-t-none border-t-0" : "",
               ].join(" ")}
             >

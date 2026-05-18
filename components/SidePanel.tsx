@@ -16,6 +16,7 @@ import {
   Search,
   SunMoon,
 } from "lucide-react";
+import { SearchModal } from "@/components/SearchModal";
 
 type SidePanelItem = {
   key: string;
@@ -24,13 +25,22 @@ type SidePanelItem = {
   onClick?: () => void;
 };
 
+/** Must match `app/page.tsx` history / `lexee:open-history-conversation` ids. */
+const HISTORY_CHAT_ENTRIES: { id: string; label: string }[] = [
+  { id: "medical-summary-demo", label: "Create Medical summary" },
+];
+
 export function SidePanel() {
   const [collapsed, setCollapsed] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string>("");
+  const [selectedHistoryConversationId, setSelectedHistoryConversationId] = useState<string | null>(
+    null,
+  );
   const [projectsExpanded, setProjectsExpanded] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [appearanceMenuOpen, setAppearanceMenuOpen] = useState(false);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window === "undefined") return "light";
     const storedTheme = window.localStorage.getItem("theme");
@@ -80,6 +90,26 @@ export function SidePanel() {
     setAppearanceMenuOpen(false);
   }, [collapsed]);
 
+  useEffect(() => {
+    const openSearch = () => setSearchModalOpen(true);
+    window.addEventListener("lexee:open-search", openSearch);
+    return () => window.removeEventListener("lexee:open-search", openSearch);
+  }, []);
+
+  useEffect(() => {
+    const onActiveConversation = (event: Event) => {
+      const id = (event as CustomEvent<{ conversationId: string | null }>).detail?.conversationId;
+      setSelectedHistoryConversationId(id ?? null);
+    };
+    window.addEventListener("lexee:active-conversation-changed", onActiveConversation);
+    return () =>
+      window.removeEventListener("lexee:active-conversation-changed", onActiveConversation);
+  }, []);
+
+  useEffect(() => {
+    if (selectedHistoryConversationId) setHistoryExpanded(true);
+  }, [selectedHistoryConversationId]);
+
   const primaryNavItems: SidePanelItem[] = [
       {
         key: "new-chat",
@@ -98,7 +128,7 @@ export function SidePanel() {
         label: "Search",
         icon: Search,
         onClick: () => {
-          router.push("/search");
+          setSearchModalOpen(true);
         },
       },
       {
@@ -128,14 +158,26 @@ export function SidePanel() {
     },
   };
 
+  /**
+   * One primary nav row highlighted at a time. When a history thread is open on `/`,
+   * no primary item is active — the nested history row shows selection instead.
+   */
+  const activeNavKey = (() => {
+    if (searchModalOpen) return "search";
+    if (pathname === "/skills" || pathname.startsWith("/skills/")) return "skills";
+    if (pathname === "/") {
+      if (selectedHistoryConversationId) return null;
+      if (selectedKey === "projects") return "projects";
+      if (selectedKey === "history") return "history";
+      return "new-chat";
+    }
+    return selectedKey || null;
+  })();
+
   const renderSidebarNavRow = (item: SidePanelItem) => {
     const Icon = item.icon;
     const canExpand = item.key === "projects" || item.key === "history";
-    const isRouteActive =
-      (item.key === "search" && pathname === "/search") ||
-      (item.key === "skills" && pathname === "/skills") ||
-      (item.key === "new-chat" && pathname === "/");
-    const isActive = selectedKey === item.key || isRouteActive;
+    const isActive = activeNavKey === item.key;
     return (
       <div key={item.key}>
         <div
@@ -221,27 +263,37 @@ export function SidePanel() {
 
         {!collapsed && item.key === "history" && historyExpanded ? (
           <div className="mt-1 flex flex-col gap-1 pb-1 px-2">
-            <button
-              type="button"
-              onClick={() => {
-                if (pathname === "/") {
-                  window.dispatchEvent(
-                    new CustomEvent("lexee:open-history-conversation", {
-                      detail: { conversationId: "medical-summary-demo" },
-                    }),
-                  );
-                  return;
-                }
-                window.sessionStorage.setItem(
-                  "lexee:pending-history-conversation",
-                  "medical-summary-demo",
-                );
-                router.push("/");
-              }}
-              className="w-full rounded-[6px] px-2 py-2 text-left font-inter text-[12px] leading-4 whitespace-nowrap truncate text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
-            >
-              Create Medical summary
-            </button>
+            {HISTORY_CHAT_ENTRIES.map((entry) => {
+              const entryActive =
+                pathname === "/" && selectedHistoryConversationId === entry.id;
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedHistoryConversationId(entry.id);
+                    if (pathname === "/") {
+                      window.dispatchEvent(
+                        new CustomEvent("lexee:open-history-conversation", {
+                          detail: { conversationId: entry.id },
+                        }),
+                      );
+                      return;
+                    }
+                    window.sessionStorage.setItem("lexee:pending-history-conversation", entry.id);
+                    router.push("/");
+                  }}
+                  className={[
+                    "w-full rounded-[6px] px-2 py-2 text-left font-inter text-[12px] leading-4 whitespace-nowrap truncate transition-colors",
+                    entryActive
+                      ? "bg-neutral-200 text-neutral-950"
+                      : "text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900",
+                  ].join(" ")}
+                >
+                  {entry.label}
+                </button>
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -329,13 +381,15 @@ export function SidePanel() {
               ].join(" ")}
               aria-label="Profile selector"
             >
-              <Image
-                src="/matt-murdock.webp"
-                alt="Matt Murdock"
-                width={32}
-                height={32}
-                className="h-8 w-8 shrink-0 rounded-full border border-neutral-200 object-cover"
-              />
+              <span className="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full border border-neutral-200">
+                <Image
+                  src="/matt-murdock.webp"
+                  alt="Matt Murdock"
+                  width={32}
+                  height={32}
+                  className="h-full w-full object-cover"
+                />
+              </span>
               <span
                 className={[
                   "min-w-0 overflow-hidden text-left transition-[opacity,max-width] duration-200 ease-out motion-reduce:transition-none",
@@ -354,7 +408,7 @@ export function SidePanel() {
 
             {profileMenuOpen ? (
               <div className="absolute bottom-full left-0 z-50 mb-2 flex items-end gap-2">
-                <div className="w-[260px] rounded-xl border border-neutral-300 bg-neutral-50 p-2 shadow-[0_8px_24px_rgba(18,18,18,0.12)]">
+                <div className="w-[260px] rounded-xl border border-neutral-300 bg-neutral-50 p-2 shadow-[var(--shadow-panel)]">
                   <div className="rounded-lg px-2 py-2">
                     <p className="text-body-md text-neutral-950">Matt Murdock</p>
                     <p className="text-caption text-neutral-500">
@@ -386,7 +440,7 @@ export function SidePanel() {
                 </div>
 
                 {appearanceMenuOpen ? (
-                  <div className="w-[168px] shrink-0 rounded-xl border border-neutral-300 bg-neutral-50 p-2 shadow-[0_8px_24px_rgba(18,18,18,0.12)]">
+                  <div className="w-[168px] shrink-0 rounded-xl border border-neutral-300 bg-neutral-50 p-2 shadow-[var(--shadow-panel)]">
                     <button
                       type="button"
                       onClick={() => setTheme("light")}
@@ -418,6 +472,8 @@ export function SidePanel() {
           </div>
         </div>
       </aside>
+
+      <SearchModal open={searchModalOpen} onClose={() => setSearchModalOpen(false)} />
     </div>
   );
 }

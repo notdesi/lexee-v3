@@ -59,7 +59,7 @@ export default function SkillsPage() {
           <label htmlFor="skills-search" className="sr-only">
             Search skills
           </label>
-          <div className="flex h-11 items-center gap-2 rounded-xl border border-neutral-300 bg-neutral-50 px-3 shadow-[0_1px_2px_rgba(18,18,18,0.05)]">
+          <div className="flex h-11 items-center gap-2 rounded-xl border border-neutral-300 bg-neutral-50 px-3 shadow-[var(--shadow-card)]">
             <Search className="h-4 w-4 shrink-0 text-neutral-500" strokeWidth={1.75} />
             <input
               id="skills-search"
@@ -94,7 +94,7 @@ export default function SkillsPage() {
                     <li key={skill.id}>
                       <Link
                         href={`/?skill=${encodeURIComponent(skill.id)}`}
-                        className="flex h-full w-full flex-col rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-4 text-left shadow-[0_1px_2px_rgba(18,18,18,0.05)] transition-colors hover:border-violet-200 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+                        className="flex h-full w-full flex-col rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-4 text-left shadow-[var(--shadow-card)] transition-colors hover:border-violet-200 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <span className="text-body-md font-medium text-neutral-950">{skill.title}</span>

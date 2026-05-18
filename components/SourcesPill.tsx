@@ -1,4 +1,4 @@
-import { Library } from "lucide-react";
+import { BookMarked } from "lucide-react";
 
 type SourcesPillProps = {
   count: number;
@@ -19,7 +19,7 @@ export function SourcesPill({ count, onClick }: SourcesPillProps) {
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300",
       ].join(" ")}
     >
-      <Library className="h-3.5 w-3.5 text-violet-500" strokeWidth={1.85} aria-hidden="true" />
+      <BookMarked className="h-3.5 w-3.5 text-violet-500" strokeWidth={1.85} aria-hidden="true" />
       {label}
     </button>
   );

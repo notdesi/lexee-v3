@@ -225,8 +225,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
         <p className="text-neutral-950">
           As a result of the motor vehicle accident, Plaintiff continues to experience ongoing neck pain,
           lower back pain, headaches, intermittent radiating symptoms, and functional limitations affecting
-          daily activities and occupational tasks. Plaintiff remains under medical care and may require
-          continued rehabilitation, pain management treatment, and future medical intervention.
+          daily activities and occupational tasks. Plaintiff remains under medical care.
         </p>
         <CitationPill
           label="Citation: Latest follow‑up note • Symptom journal"

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { MoreHorizontal } from "lucide-react";
-import { use } from "react";
 
 import {
   CATEGORY_ORDER,
@@ -17,8 +16,8 @@ type PageProps = {
   params: Promise<{ category: string }>;
 };
 
-export default function SkillsCategoryPage({ params }: PageProps) {
-  const { category: slug } = use(params);
+export default async function SkillsCategoryPage({ params }: PageProps) {
+  const { category: slug } = await params;
   const category = slugToCategory(slug);
 
   if (!category) {
@@ -59,7 +58,7 @@ export default function SkillsCategoryPage({ params }: PageProps) {
             <li key={skill.id}>
               <Link
                 href={`/?skill=${encodeURIComponent(skill.id)}`}
-                className="flex h-full w-full flex-col rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-4 text-left shadow-[0_1px_2px_rgba(18,18,18,0.05)] transition-colors hover:border-violet-200 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+                className="flex h-full w-full flex-col rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-4 text-left shadow-[var(--shadow-card)] transition-colors hover:border-violet-200 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-body-md font-medium text-neutral-950">{skill.title}</span>

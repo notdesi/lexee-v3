@@ -42,33 +42,66 @@
     --button-primary-disabled-fg: var(--violet-100);
     --chatbox-bg: #ffffff;
     --chatbox-border: var(--neutral-300);
+    /* Softer outlines for composer + transcript (avoid harsh light ring on warm bg) */
+    --chat-outline: rgb(23 23 23 / 0.075);
+    --chat-outline-accent: rgb(96 88 170 / 0.2);
+    /* Raised surfaces (cards, previews) — not remapped like neutral numbered scale */
+    --surface-elevated: #ffffff;
+    --surface-elevated-hover: var(--neutral-100);
+    --shadow-card: 0 1px 2px rgba(18, 18, 18, 0.055);
+    --shadow-panel: 0 8px 24px rgba(18, 18, 18, 0.12);
+    --shadow-popup: 0 12px 28px rgba(40, 38, 64, 0.18);
+    --shadow-subtle: 0 1px 2px rgba(18, 18, 18, 0.07);
   }
 
   [data-theme="dark"] {
-    /* Neutral scale (dark mode remap) */
-    --neutral-50: #121212;
-    --neutral-100: #1a1a1a;
-    --neutral-200: #272727;
-    --neutral-300: #404040;
-    --neutral-400: #535353;
-    --neutral-500: #727272;
-    --neutral-600: #a3a3a3;
-    --neutral-700: #d3d3d3;
-    --neutral-800: #ededed;
-    --neutral-900: #fafafa;
+    /* Neutral scale — inverted; 50 anchors to canvas #1f1f1e, steps lift with warm charcoal */
+    --neutral-50: #1f1f1e;
+    --neutral-100: #2b2b28;
+    --neutral-200: #373734;
+    --neutral-300: #484845;
+    --neutral-400: #61615c;
+    --neutral-500: #7f7f79;
+    --neutral-600: #a6a69e;
+    --neutral-700: #d2d2c8;
+    --neutral-800: #e8e8e2;
+    --neutral-900: #f6f6f1;
     --neutral-950: #ffffff;
 
-    --background: #121212;
-    --foreground: #fafafa;
-    --button-ghost-fg: #e5e5e5;
-    --button-ghost-hover: #2a2a2a;
+    /* Violet — softened to match warmer charcoal base */
+    --violet-50: #232027;
+    --violet-100: #2c2736;
+    --violet-200: #3a344d;
+    --violet-300: #514a69;
+    --violet-400: #746c94;
+    --violet-500: #958cbd;
+    --violet-600: #b7aee2;
+    --violet-700: #d4ccf7;
+    --violet-800: #eae6fc;
+    --violet-900: #f5f3fc;
+    --violet-950: #fcfbff;
+
+    --background: #1f1f1e;
+    --foreground: #f5f5f4;
+    --button-ghost-fg: #deded8;
+    --button-ghost-hover: #333330;
     --button-primary-bg: var(--violet-500);
-    --button-primary-hover: var(--violet-400);
-    --button-primary-fg: #121212;
-    --button-primary-disabled-bg: #3e3a63;
-    --button-primary-disabled-fg: #a8a5ce;
+    --button-primary-hover: var(--violet-600);
+    --button-primary-fg: #1f1f1e;
+    --button-primary-disabled-bg: #454065;
+    --button-primary-disabled-fg: #dddaf3;
     --chatbox-bg: var(--neutral-200);
-    --chatbox-border: #3a3a3a;
+    --chatbox-border: var(--neutral-300);
+    --chat-outline: rgb(255 255 255 / 0.08);
+    --chat-outline-accent: rgb(212 204 247 / 0.15);
+    --surface-elevated: var(--neutral-100);
+    --surface-elevated-hover: var(--neutral-200);
+    --shadow-card:
+      0 1px 3px rgba(0, 0, 0, 0.38),
+      0 1px 2px rgba(0, 0, 0, 0.32);
+    --shadow-panel: 0 14px 36px rgba(0, 0, 0, 0.5);
+    --shadow-popup: 0 22px 50px rgba(0, 0, 0, 0.58);
+    --shadow-subtle: 0 1px 4px rgba(0, 0, 0, 0.36);
   }
 
   html,
@@ -122,6 +155,10 @@
     line-height: 16px;
     letter-spacing: 0px;
     color: var(--neutral-500);
+  }
+
+  [data-theme="dark"] .text-caption {
+    color: var(--neutral-600);
   }
 
   /* Spectral — AI chatbot responses only */

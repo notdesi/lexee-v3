@@ -132,7 +132,7 @@ export function DocumentPreviewPanel({
                         onSelect(index);
                         setView("preview");
                       }}
-                      className="flex w-full flex-col rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(18,18,18,0.04)] transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                      className="flex w-full flex-col rounded-lg border border-neutral-200 bg-[var(--surface-elevated)] px-3 py-2.5 text-left shadow-[var(--shadow-card)] transition-colors hover:border-neutral-300 hover:bg-[var(--surface-elevated-hover)]"
                     >
                       <span className="font-inter text-[13px] font-medium leading-5 text-neutral-950">
                         {doc.title}
@@ -157,7 +157,7 @@ export function DocumentPreviewPanel({
               />
             ) : (
               <div className="h-full overflow-y-auto px-4 py-4">
-                <article className="mx-auto w-full max-w-[640px] rounded-md border border-neutral-200 bg-white px-8 py-8 shadow-[0_1px_2px_rgba(18,18,18,0.06)]">
+                <article className="mx-auto w-full max-w-[640px] rounded-md border border-neutral-200 bg-[var(--surface-elevated)] px-8 py-8 shadow-[var(--shadow-card)]">
                   <header className="mb-5 border-b border-neutral-200 pb-4">
                     <h2 className="font-inter text-[15px] font-semibold leading-5 tracking-[-0.01em] text-neutral-950">
                       {active.title}

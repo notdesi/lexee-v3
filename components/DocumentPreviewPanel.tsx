@@ -84,11 +84,11 @@ export function DocumentPreviewPanel({
   return (
     <aside
       className={[
-        "z-30 flex h-[100dvh] min-h-0 shrink-0 flex-col overflow-hidden border-l border-neutral-200 bg-neutral-50",
+        "z-30 flex h-[100dvh] min-h-0 shrink-0 flex-col overflow-hidden border-l border-neutral-200 bg-[var(--background)]",
         widthClass,
       ].join(" ")}
     >
-        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-neutral-200 px-3">
+        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-neutral-200 bg-[var(--background)] px-3">
           {hasMultiple && showPreview ? (
             <button
               type="button"
@@ -213,7 +213,7 @@ export function DocumentPreviewPanel({
         </div>
 
         {showPreview && active ? (
-          <div className="flex shrink-0 items-center justify-between border-t border-neutral-200 bg-neutral-50 px-3 py-2">
+          <div className="flex shrink-0 items-center justify-between border-t border-neutral-200 bg-[var(--background)] px-3 py-2">
             <div className="flex items-center gap-1">
               {canDownloadFromSrc ? (
                 <a

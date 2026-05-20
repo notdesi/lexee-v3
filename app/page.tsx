@@ -19,9 +19,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import type { FormEvent, KeyboardEvent } from "react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { LexeeResponseEndSymbol } from "@/components/LexeeResponseEndSymbol";
 import { MedicalSummaryDemoResponse } from "@/components/MedicalSummaryDemoResponse";
 import { DocumentPreviewPanel, type DocumentPreview } from "@/components/DocumentPreviewPanel";
-import { SAMPLE_DOCUMENT_PREVIEW } from "@/lib/sample-document-preview";
+import { createSampleDocumentPreview } from "@/lib/document-preview-names";
 import {
   GENERATION_PHASES,
   type GenerationProgress,
@@ -249,6 +250,8 @@ function HomeInner() {
     () => messages.reduce((latest, msg, idx) => (msg.role === "assistant" ? idx : latest), -1),
     [messages],
   );
+  const isLexeeEndSymbolVisible = (messageIndex: number) =>
+    !isGenerating && messageIndex === lastAssistantMessageIndex;
 
   useEffect(() => {
     const resetChat = () => {
@@ -618,7 +621,7 @@ function HomeInner() {
     ..._unused: Parameters<typeof openDocumentPreview>
   ) => {
     void _unused;
-    openDocumentPreview([{ ...SAMPLE_DOCUMENT_PREVIEW }], "Citation document", "Source document");
+    openDocumentPreview([createSampleDocumentPreview()], "Citation document", "Source document");
   };
 
   const chatStarted = messages.length > 0;
@@ -979,6 +982,7 @@ function HomeInner() {
                         <Share2 className="h-3.5 w-3.5" strokeWidth={1.9} />
                       </button>
                     </div>
+                    <LexeeResponseEndSymbol visible={isLexeeEndSymbolVisible(messageIndex)} />
                   </div>
                 ) : chatMessage.presentation === "summons_skill_cards" ? (
                   <div key={chatMessage.id} className="group max-w-[90%]">
@@ -1042,6 +1046,7 @@ function HomeInner() {
                         <Share2 className="h-3.5 w-3.5" strokeWidth={1.9} />
                       </button>
                     </div>
+                    <LexeeResponseEndSymbol visible={isLexeeEndSymbolVisible(messageIndex)} />
                   </div>
                 ) : (
                   <div key={chatMessage.id} className="group max-w-[90%]">
@@ -1051,7 +1056,12 @@ function HomeInner() {
                         type="button"
                         onClick={() =>
                           openDocumentPreview(
-                            [{ ...SAMPLE_DOCUMENT_PREVIEW, editable: true, isLexeeGenerated: true }],
+                            [
+                              createSampleDocumentPreview({
+                                editable: true,
+                                isLexeeGenerated: true,
+                              }),
+                            ],
                             "Summons document",
                             "Generated draft",
                           )
@@ -1123,6 +1133,7 @@ function HomeInner() {
                         <Share2 className="h-3.5 w-3.5" strokeWidth={1.9} />
                       </button>
                     </div>
+                    <LexeeResponseEndSymbol visible={isLexeeEndSymbolVisible(messageIndex)} />
                   </div>
                 ),
             )}

@@ -9,7 +9,7 @@ import {
   MEDICAL_SUMMARY_SOURCE_COUNT,
   MEDICAL_SUMMARY_SOURCE_DOCUMENTS,
 } from "@/lib/medical-summary-source-documents";
-import { SAMPLE_DOCUMENT_PREVIEW } from "@/lib/sample-document-preview";
+import { createSampleDocumentPreview } from "@/lib/document-preview-names";
 
 type MedicalSummaryDemoResponseProps = {
   onCitationClick?: (docs: DocumentPreview[], collectionTitle: string, collectionSubtitle?: string) => void;
@@ -52,7 +52,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
           label="Citation: EMS report • ER intake note"
           onClick={() =>
             onCitationClick?.(
-              [{ ...SAMPLE_DOCUMENT_PREVIEW }],
+              [createSampleDocumentPreview()],
               "Accident Description",
               "Source documents for accident description",
             )
@@ -95,7 +95,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
           label="Citation: ER visit summary • CT/X‑ray results"
           onClick={() =>
             onCitationClick?.(
-              [{ ...SAMPLE_DOCUMENT_PREVIEW }],
+              [createSampleDocumentPreview()],
               "Initial Emergency Treatment",
               "Source documents for initial ER care",
             )
@@ -128,7 +128,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
           label="Citation: PT notes • Follow‑up visit notes"
           onClick={() =>
             onCitationClick?.(
-              [{ ...SAMPLE_DOCUMENT_PREVIEW }],
+              [createSampleDocumentPreview()],
               "Follow‑Up Medical Care",
               "Progress notes supporting follow‑up care",
             )
@@ -149,7 +149,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
         <CitationPill
           label="Citation: Cervical MRI • Lumbar MRI"
           onClick={() =>
-            onCitationClick?.([{ ...SAMPLE_DOCUMENT_PREVIEW }], "MRI Findings", "Imaging reports supporting MRI findings")
+            onCitationClick?.([createSampleDocumentPreview()], "MRI Findings", "Imaging reports supporting MRI findings")
           }
         />
       </section>
@@ -176,7 +176,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
           label="Citation: Treatment plan • Attendance records"
           onClick={() =>
             onCitationClick?.(
-              [{ ...SAMPLE_DOCUMENT_PREVIEW }],
+              [createSampleDocumentPreview()],
               "Conservative Treatment",
               "Documentation of conservative treatment course",
             )
@@ -210,7 +210,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
           label="Citation: Ortho consult • Pain management consult"
           onClick={() =>
             onCitationClick?.(
-              [{ ...SAMPLE_DOCUMENT_PREVIEW }],
+              [createSampleDocumentPreview()],
               "Specialist Evaluations",
               "Specialist opinions supporting diagnosis and plan",
             )
@@ -231,7 +231,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
           label="Citation: Latest follow‑up note • Symptom journal"
           onClick={() =>
             onCitationClick?.(
-              [{ ...SAMPLE_DOCUMENT_PREVIEW }],
+              [createSampleDocumentPreview()],
               "Current Condition",
               "Recent documentation supporting current condition",
             )

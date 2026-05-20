@@ -2,7 +2,7 @@
 
 > This file is generated from `app/globals.css` and class usage in `app/` + `components/`. Do not edit manually.
 
-- Generated at: `2026-05-18T05:23:53.465Z`
+- Generated at: `2026-05-20T09:29:17.153Z`
 - Regenerate: `npm run design:guidelines`
 
 ## Purpose
@@ -164,10 +164,10 @@
 - The list below is extracted from existing class usage and represents the current spacing vocabulary for this codebase.
 - Prefer these utilities first before introducing new spacing values.
 
-- `gap-0.5` (used 1x)
+- `gap-0.5` (used 2x)
 - `gap-1` (used 13x)
 - `gap-1.5` (used 3x)
-- `gap-2` (used 20x)
+- `gap-2` (used 23x)
 - `gap-3` (used 10x)
 - `gap-4` (used 4x)
 - `gap-10` (used 1x)
@@ -176,10 +176,10 @@
 - `mb-2` (used 3x)
 - `mb-5` (used 1x)
 - `mr-1` (used 1x)
-- `mt-0.5` (used 3x)
+- `mt-0.5` (used 4x)
 - `mt-1` (used 12x)
 - `mt-1.5` (used 3x)
-- `mt-2` (used 8x)
+- `mt-2` (used 9x)
 - `mt-3` (used 10x)
 - `mt-4` (used 2x)
 - `mt-5` (used 1x)
@@ -187,6 +187,7 @@
 - `mt-10` (used 5x)
 - `mx-2` (used 1x)
 - `my-5` (used 7x)
+- `p-0.5` (used 1x)
 - `p-2` (used 6x)
 - `p-3` (used 3x)
 - `p-4` (used 1x)
@@ -209,14 +210,14 @@
 - `px-0` (used 2x)
 - `px-1` (used 2x)
 - `px-2` (used 27x)
-- `px-3` (used 14x)
+- `px-3` (used 17x)
 - `px-4` (used 10x)
 - `px-6` (used 2x)
 - `px-8` (used 6x)
 - `py-0.5` (used 2x)
-- `py-1` (used 9x)
+- `py-1` (used 10x)
 - `py-1.5` (used 1x)
-- `py-2` (used 18x)
+- `py-2` (used 21x)
 - `py-2.5` (used 5x)
 - `py-3` (used 4x)
 - `py-4` (used 4x)

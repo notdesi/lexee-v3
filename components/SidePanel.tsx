@@ -2,19 +2,22 @@
 
 import Image from "next/image";
 import type { ComponentType } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Brain,
   ChevronRight,
   Folder,
-  History,
+  MoreVertical,
   MonitorCog,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
+  Pin,
   Plus,
   Search,
   SunMoon,
+  Trash2,
 } from "lucide-react";
 import { SearchModal } from "@/components/SearchModal";
 import {
@@ -25,9 +28,11 @@ import {
 type SidePanelItem = {
   key: string;
   label: string;
-  icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
   onClick?: () => void;
 };
+
+type RecentChatEntry = { id: string; label: string; pinned: boolean };
 
 export function SidePanel() {
   const [collapsed, setCollapsed] = useState(false);
@@ -35,8 +40,12 @@ export function SidePanel() {
   const [selectedHistoryConversationId, setSelectedHistoryConversationId] = useState<string | null>(
     null,
   );
+  const [recentEntries, setRecentEntries] = useState<RecentChatEntry[]>(() =>
+    HISTORY_CHAT_ENTRIES.map((e) => ({ ...e, pinned: false })),
+  );
+  const [historyRowMenuId, setHistoryRowMenuId] = useState<string | null>(null);
+  const recentMenuRef = useRef<HTMLDivElement | null>(null);
   const [projectsExpanded, setProjectsExpanded] = useState(false);
-  const [historyExpanded, setHistoryExpanded] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [appearanceMenuOpen, setAppearanceMenuOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -87,6 +96,7 @@ export function SidePanel() {
     if (!collapsed) return;
     setProfileMenuOpen(false);
     setAppearanceMenuOpen(false);
+    setHistoryRowMenuId(null);
   }, [collapsed]);
 
   useEffect(() => {
@@ -115,6 +125,72 @@ export function SidePanel() {
   useEffect(() => {
     if (selectedHistoryConversationId) setHistoryExpanded(true);
   }, [selectedHistoryConversationId]);
+
+  useEffect(() => {
+    if (!historyRowMenuId) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (recentMenuRef.current?.contains(target)) return;
+      setHistoryRowMenuId(null);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [historyRowMenuId]);
+
+  useEffect(() => {
+    if (!historyRowMenuId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setHistoryRowMenuId(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [historyRowMenuId]);
+
+  const sortedRecentEntries = useMemo(() => {
+    const pinned = recentEntries.filter((e) => e.pinned);
+    const unpinned = recentEntries.filter((e) => !e.pinned);
+    return [...pinned, ...unpinned];
+  }, [recentEntries]);
+
+  const openRecentConversation = (entryId: string) => {
+    setSelectedHistoryConversationId(entryId);
+    setHistoryRowMenuId(null);
+    if (pathname === "/") {
+      window.dispatchEvent(
+        new CustomEvent("lexee:open-history-conversation", {
+          detail: { conversationId: SHARED_HISTORY_CONVERSATION_ID },
+        }),
+      );
+      return;
+    }
+    window.sessionStorage.setItem("lexee:pending-history-nav", entryId);
+    router.push("/");
+  };
+
+  const handlePinRecent = (id: string) => {
+    setRecentEntries((prev) => prev.map((e) => (e.id === id ? { ...e, pinned: !e.pinned } : e)));
+    setHistoryRowMenuId(null);
+  };
+
+  const handleRenameRecent = (entry: RecentChatEntry) => {
+    const next = window.prompt("Rename conversation", entry.label);
+    if (next == null) return;
+    const trimmed = next.trim();
+    if (!trimmed) return;
+    setRecentEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, label: trimmed } : e)));
+    setHistoryRowMenuId(null);
+  };
+
+  const handleDeleteRecent = (id: string) => {
+    setRecentEntries((prev) => prev.filter((e) => e.id !== id));
+    if (selectedHistoryConversationId === id) {
+      setSelectedHistoryConversationId(null);
+    }
+    setHistoryRowMenuId(null);
+  };
+
+  const recentMenuItemClass =
+    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left font-inter text-[14px] font-normal leading-5 text-neutral-950 transition-colors hover:bg-neutral-100";
 
   const primaryNavItems: SidePanelItem[] = [
       {
@@ -157,8 +233,7 @@ export function SidePanel() {
 
   const historyNavItem: SidePanelItem = {
     key: "history",
-    label: "History",
-    icon: History,
+    label: "Recent",
     onClick: () => {
       // Prototype: replace with real chat history later.
     },
@@ -182,8 +257,9 @@ export function SidePanel() {
 
   const renderSidebarNavRow = (item: SidePanelItem) => {
     const Icon = item.icon;
-    const canExpand = item.key === "projects" || item.key === "history";
+    const canExpand = item.key === "projects";
     const isActive = activeNavKey === item.key;
+    const isHistory = item.key === "history";
     return (
       <div key={item.key}>
         <div
@@ -200,28 +276,43 @@ export function SidePanel() {
               setSelectedKey(item.key);
               item.onClick?.();
             }}
-            className="flex min-w-0 flex-1 items-center gap-2 px-[10px] py-[6px] text-left text-inherit hover:text-inherit focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-violet-300"
+            className={[
+              "flex min-w-0 flex-1 items-center gap-2 px-[10px] text-left text-inherit hover:text-inherit focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-violet-300",
+              isHistory ? "py-1" : "py-[6px]",
+            ].join(" ")}
           >
+            {Icon ? (
+              <span
+                className={[
+                  "flex h-5 w-5 shrink-0 items-center justify-center",
+                  item.key === "new-chat"
+                    ? "h-6 w-6 rounded-full bg-neutral-300 text-neutral-950"
+                    : "",
+                ].join(" ")}
+              >
+                <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              </span>
+            ) : null}
             <span
+              aria-hidden={collapsed && !isHistory}
               className={[
-                "flex h-5 w-5 shrink-0 items-center justify-center",
-                item.key === "new-chat"
-                  ? "h-6 w-6 rounded-full bg-neutral-300 text-neutral-950"
-                  : "",
-              ].join(" ")}
-            >
-              <Icon
-                className="h-[18px] w-[18px]"
-                strokeWidth={1.5}
-              />
-            </span>
-            <span
-              aria-hidden={collapsed}
-              className={[
-                "min-w-0 truncate text-body-md-secondary leading-[20px]",
-                "transition-[opacity,max-width] duration-200 ease-out motion-reduce:transition-none",
-                collapsed ? "max-w-0 overflow-hidden opacity-0" : "max-w-[200px] opacity-100",
-                isActive && !collapsed ? "text-neutral-950" : "",
+                "min-w-0 truncate transition-[opacity,max-width] duration-200 ease-out motion-reduce:transition-none",
+                collapsed && isHistory
+                  ? "max-w-[48px] overflow-hidden text-left opacity-100 font-inter text-[9px] leading-none text-neutral-700"
+                  : collapsed
+                    ? "max-w-0 overflow-hidden opacity-0"
+                    : "max-w-[200px] opacity-100",
+                isHistory
+                  ? [
+                      !collapsed ? "font-inter text-[12px] leading-4" : "",
+                      isActive && !collapsed ? "text-neutral-950" : !collapsed ? "text-neutral-700" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")
+                  : [
+                      "text-body-md-secondary leading-[20px]",
+                      isActive && !collapsed ? "text-neutral-950" : "",
+                    ].join(" "),
               ].join(" ")}
             >
               {item.label}
@@ -235,9 +326,6 @@ export function SidePanel() {
                 if (item.key === "projects") {
                   setProjectsExpanded((value) => !value);
                 }
-                if (item.key === "history") {
-                  setHistoryExpanded((value) => !value);
-                }
               }}
               className="mr-1 inline-flex shrink-0 items-center justify-center rounded-sm px-1 py-1 text-neutral-700 opacity-0 transition-opacity hover:text-neutral-950 group-hover:opacity-100"
             >
@@ -245,7 +333,6 @@ export function SidePanel() {
                 className={[
                   "h-4 w-4 transition-transform",
                   item.key === "projects" && projectsExpanded ? "rotate-90" : "",
-                  item.key === "history" && historyExpanded ? "rotate-90" : "",
                 ].join(" ")}
                 strokeWidth={1.75}
               />
@@ -267,37 +354,95 @@ export function SidePanel() {
           </div>
         ) : null}
 
-        {!collapsed && item.key === "history" && historyExpanded ? (
-          <div className="mt-1 flex flex-col gap-1 pb-1 px-2">
-            {HISTORY_CHAT_ENTRIES.map((entry) => {
+        {!collapsed && item.key === "history" ? (
+          <div className="mt-0 flex flex-col gap-0.5 pb-1 px-2">
+            {sortedRecentEntries.map((entry) => {
               const entryActive =
                 pathname === "/" && selectedHistoryConversationId === entry.id;
               return (
-                <button
+                <div
                   key={entry.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedHistoryConversationId(entry.id);
-                    if (pathname === "/") {
-                      window.dispatchEvent(
-                        new CustomEvent("lexee:open-history-conversation", {
-                          detail: { conversationId: SHARED_HISTORY_CONVERSATION_ID },
-                        }),
-                      );
-                      return;
-                    }
-                    window.sessionStorage.setItem("lexee:pending-history-nav", entry.id);
-                    router.push("/");
-                  }}
-                  className={[
-                    "w-full rounded-[6px] px-2 py-2 text-left font-inter text-[12px] leading-4 whitespace-nowrap truncate transition-colors",
-                    entryActive
-                      ? "bg-neutral-200 text-neutral-950"
-                      : "text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900",
-                  ].join(" ")}
+                  ref={historyRowMenuId === entry.id ? recentMenuRef : undefined}
+                  className="relative"
                 >
-                  {entry.label}
-                </button>
+                  <div
+                    className={[
+                      "group flex w-full items-center gap-0.5 rounded-[6px] font-inter text-[14px] leading-[22px] transition-colors",
+                      entryActive
+                        ? "bg-neutral-200 text-neutral-950"
+                        : "text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900",
+                    ].join(" ")}
+                  >
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 truncate px-2 py-2 text-left text-inherit focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-violet-300"
+                      onClick={() => openRecentConversation(entry.id)}
+                    >
+                      {entry.label}
+                    </button>
+                    <button
+                      type="button"
+                      aria-expanded={historyRowMenuId === entry.id}
+                      aria-haspopup="menu"
+                      aria-label="More options"
+                      className={[
+                        "mr-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-neutral-500 transition-opacity",
+                        "hover:bg-neutral-200/80 hover:text-neutral-800",
+                        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-violet-300",
+                        historyRowMenuId === entry.id
+                          ? "opacity-100"
+                          : "opacity-0 group-hover:opacity-100",
+                      ].join(" ")}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setHistoryRowMenuId((open) => (open === entry.id ? null : entry.id));
+                      }}
+                    >
+                      <MoreVertical className="h-4 w-4" strokeWidth={1.75} />
+                    </button>
+                  </div>
+                  {historyRowMenuId === entry.id ? (
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-full z-[100] mt-1.5 w-[11.5rem] overflow-hidden rounded-2xl border border-neutral-200 bg-white p-2 shadow-[0_4px_24px_rgba(18,18,18,0.12)]"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={recentMenuItemClass}
+                        onClick={() => handlePinRecent(entry.id)}
+                      >
+                        <Pin
+                          className={[
+                            "h-[18px] w-[18px] shrink-0 text-neutral-950",
+                            entry.pinned ? "fill-neutral-950" : "fill-none",
+                          ].join(" ")}
+                          strokeWidth={1.5}
+                        />
+                        {entry.pinned ? "Unpin" : "Pin"}
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={recentMenuItemClass}
+                        onClick={() => handleRenameRecent(entry)}
+                      >
+                        <Pencil className="h-[18px] w-[18px] shrink-0 text-neutral-950" strokeWidth={1.5} />
+                        Rename
+                      </button>
+                      <div className="my-1.5 h-px bg-neutral-200" role="presentation" />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={`${recentMenuItemClass} text-[#8b2942] hover:bg-neutral-100 hover:text-[#6d1f33]`}
+                        onClick={() => handleDeleteRecent(entry.id)}
+                      >
+                        <Trash2 className="h-[18px] w-[18px] shrink-0 text-[#8b2942]" strokeWidth={1.5} />
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
           </div>

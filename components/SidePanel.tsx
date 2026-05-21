@@ -123,10 +123,6 @@ export function SidePanel() {
   }, []);
 
   useEffect(() => {
-    if (selectedHistoryConversationId) setHistoryExpanded(true);
-  }, [selectedHistoryConversationId]);
-
-  useEffect(() => {
     if (!historyRowMenuId) return;
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node;

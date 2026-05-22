@@ -118,6 +118,26 @@
     text-rendering: optimizeLegibility;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    button,
+    a[href],
+    [role="button"],
+    [role="menuitem"] {
+      transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+      transition-duration: 150ms;
+      transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button,
+    a[href],
+    [role="button"],
+    [role="menuitem"] {
+      transition-duration: 0.01ms;
+    }
+  }
+
   /* Overlay-style scrollbars — no track background “container” */
   * {
     scrollbar-width: thin;

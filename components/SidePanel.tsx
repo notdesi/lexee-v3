@@ -19,7 +19,10 @@ import {
   SunMoon,
   Trash2,
 } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatedPopover } from "@/components/AnimatedPopover";
 import { SearchModal } from "@/components/SearchModal";
+import { uiMotionTransition } from "@/lib/ui-motion";
 import {
   HISTORY_CHAT_ENTRIES,
   SHARED_HISTORY_CONVERSATION_ID,
@@ -78,17 +81,6 @@ export function SidePanel() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleRightPanelOpened = () => {
-      setCollapsed(true);
-    };
-
-    window.addEventListener("lexee:right-panel-opened", handleRightPanelOpened);
-    return () => {
-      window.removeEventListener("lexee:right-panel-opened", handleRightPanelOpened);
     };
   }, []);
 
@@ -185,8 +177,10 @@ export function SidePanel() {
     setHistoryRowMenuId(null);
   };
 
+  const reduceMotion = useReducedMotion();
+
   const recentMenuItemClass =
-    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left font-inter text-[14px] font-normal leading-5 text-neutral-950 transition-colors hover:bg-neutral-100";
+    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left font-inter text-[14px] font-normal leading-5 text-neutral-950 ui-t-colors hover:bg-neutral-100";
 
   const primaryNavItems: SidePanelItem[] = [
       {
@@ -260,7 +254,7 @@ export function SidePanel() {
       <div key={item.key}>
         <div
           className={[
-            "group mx-2 flex w-[calc(100%-16px)] items-center rounded-[6px]",
+            "group mx-2 flex w-[calc(100%-16px)] items-center rounded-[6px] ui-t-colors",
             "text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950",
             isActive ? "bg-neutral-200 text-neutral-950" : "",
           ].join(" ")}
@@ -290,14 +284,12 @@ export function SidePanel() {
               </span>
             ) : null}
             <span
-              aria-hidden={collapsed && !isHistory}
+              aria-hidden={collapsed}
               className={[
                 "min-w-0 truncate transition-[opacity,max-width] duration-200 ease-out motion-reduce:transition-none",
-                collapsed && isHistory
-                  ? "max-w-[48px] overflow-hidden text-left opacity-100 font-inter text-[9px] leading-none text-neutral-700"
-                  : collapsed
-                    ? "max-w-0 overflow-hidden opacity-0"
-                    : "max-w-[200px] opacity-100",
+                collapsed
+                  ? "max-w-0 overflow-hidden opacity-0"
+                  : "max-w-[200px] opacity-100",
                 isHistory
                   ? [
                       !collapsed ? "font-inter text-[12px] leading-4" : "",
@@ -323,11 +315,11 @@ export function SidePanel() {
                   setProjectsExpanded((value) => !value);
                 }
               }}
-              className="mr-1 inline-flex shrink-0 items-center justify-center rounded-sm px-1 py-1 text-neutral-700 opacity-0 transition-opacity hover:text-neutral-950 group-hover:opacity-100"
+              className="mr-1 inline-flex shrink-0 items-center justify-center rounded-sm px-1 py-1 text-neutral-700 opacity-0 ui-t-opacity hover:text-neutral-950 group-hover:opacity-100"
             >
               <ChevronRight
                 className={[
-                  "h-4 w-4 transition-transform",
+                  "h-4 w-4 ui-t-transform",
                   item.key === "projects" && projectsExpanded ? "rotate-90" : "",
                 ].join(" ")}
                 strokeWidth={1.75}
@@ -363,7 +355,7 @@ export function SidePanel() {
                 >
                   <div
                     className={[
-                      "group flex w-full items-center gap-0.5 rounded-[6px] font-inter text-[14px] leading-[22px] transition-colors",
+                      "group flex w-full items-center gap-0.5 rounded-[6px] font-inter text-[14px] leading-[22px] ui-t-colors",
                       entryActive
                         ? "bg-neutral-200 text-neutral-950"
                         : "text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900",
@@ -382,7 +374,7 @@ export function SidePanel() {
                       aria-haspopup="menu"
                       aria-label="More options"
                       className={[
-                        "mr-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-neutral-500 transition-opacity",
+                        "mr-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-neutral-500 ui-t-opacity",
                         "hover:bg-neutral-200/80 hover:text-neutral-800",
                         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-violet-300",
                         historyRowMenuId === entry.id
@@ -397,11 +389,16 @@ export function SidePanel() {
                       <MoreVertical className="h-4 w-4" strokeWidth={1.75} />
                     </button>
                   </div>
-                  {historyRowMenuId === entry.id ? (
-                    <div
-                      role="menu"
-                      className="absolute right-0 top-full z-[100] mt-1.5 w-[11.5rem] overflow-hidden rounded-2xl border border-neutral-200 bg-white p-2 shadow-[0_4px_24px_rgba(18,18,18,0.12)]"
-                    >
+                  <AnimatePresence>
+                    {historyRowMenuId === entry.id ? (
+                      <motion.div
+                        role="menu"
+                        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 2, scale: 0.99 }}
+                        transition={uiMotionTransition(reduceMotion, 0.15)}
+                        className="absolute right-0 top-full z-[100] mt-1.5 w-[11.5rem] overflow-hidden rounded-2xl border border-neutral-200 bg-white p-2 shadow-[0_4px_24px_rgba(18,18,18,0.12)]"
+                      >
                       <button
                         type="button"
                         role="menuitem"
@@ -436,8 +433,9 @@ export function SidePanel() {
                         <Trash2 className="h-[18px] w-[18px] shrink-0 text-[#8b2942]" strokeWidth={1.5} />
                         Delete
                       </button>
-                    </div>
-                  ) : null}
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
                 </div>
               );
             })}
@@ -451,7 +449,7 @@ export function SidePanel() {
 
   const widthClass = collapsed ? "w-16" : "w-[clamp(192px,18.75vw,240px)]";
   const widthTransitionClass =
-    "transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none motion-reduce:duration-0";
+    "transition-[width] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none motion-reduce:duration-0";
 
   return (
     <div
@@ -467,22 +465,43 @@ export function SidePanel() {
         ].join(" ")}
       >
         <div className="flex h-14 shrink-0 items-center">
-          <button
-            type="button"
-            className="flex h-14 w-16 shrink-0 items-center justify-center rounded-md -translate-x-px"
-            onClick={() => {
-              if (collapsed) setCollapsed(false);
-            }}
-            aria-label={collapsed ? "Expand sidebar" : "Lexee"}
-          >
-            <Image
-              src="/lexee-symbol.svg"
-              alt="Lexee"
-              width={24}
-              height={24}
-              priority
-            />
-          </button>
+          {collapsed ? (
+            <div className="flex w-16 shrink-0 items-center justify-center">
+              <button
+                type="button"
+                className="group inline-flex h-9 w-9 items-center justify-center rounded-md text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950 ui-t-colors"
+                onClick={() => setCollapsed(false)}
+                aria-label="Expand sidebar"
+              >
+                <span className="relative flex h-6 w-6 items-center justify-center">
+                  <Image
+                    src="/lexee-symbol.svg"
+                    alt=""
+                    width={24}
+                    height={24}
+                    priority
+                    aria-hidden
+                    className="ui-t-opacity group-hover:opacity-0"
+                  />
+                  <PanelLeftOpen
+                    className="absolute h-[18px] w-[18px] opacity-0 ui-t-opacity group-hover:opacity-100"
+                    strokeWidth={1.5}
+                    aria-hidden
+                  />
+                </span>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="flex h-14 min-w-0 flex-1 items-center justify-start px-[10px] rounded-md -translate-x-px"
+              aria-label="Lexee"
+            >
+              <span className="truncate font-spectral text-[20px] leading-none tracking-[-0.02em] text-neutral-950">
+                Lexee
+              </span>
+            </button>
+          )}
 
           <div className="flex flex-1 items-center justify-end pr-3">
             <button
@@ -508,9 +527,11 @@ export function SidePanel() {
           <div className="flex flex-col gap-1">
             {primaryNavItems.map((item) => renderSidebarNavRow(item))}
           </div>
-          <div className="mt-10 flex flex-col gap-1">
-            {renderSidebarNavRow(historyNavItem)}
-          </div>
+          {!collapsed ? (
+            <div className="mt-10 flex flex-col gap-1">
+              {renderSidebarNavRow(historyNavItem)}
+            </div>
+          ) : null}
         </nav>
 
         <div className="shrink-0 border-t border-neutral-200 p-2">
@@ -523,7 +544,7 @@ export function SidePanel() {
               }}
               className={[
                 "w-full rounded-[6px] px-[10px] py-[6px]",
-                "text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950",
+                "text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950 ui-t-colors",
                 collapsed ? "flex items-center justify-center" : "flex items-center gap-2",
               ].join(" ")}
               aria-label="Profile selector"
@@ -553,8 +574,10 @@ export function SidePanel() {
               </span>
             </button>
 
-            {profileMenuOpen ? (
-              <div className="absolute bottom-full left-0 z-50 mb-2 flex items-end gap-2">
+            <AnimatedPopover
+              open={profileMenuOpen}
+              className="absolute bottom-full left-0 z-50 mb-2 flex items-end gap-2"
+            >
                 <div className="w-[260px] rounded-xl border border-neutral-300 bg-neutral-50 p-2 shadow-[var(--shadow-panel)]">
                   <div className="rounded-lg px-2 py-2">
                     <p className="text-body-md text-neutral-950">Matt Murdock</p>
@@ -586,8 +609,10 @@ export function SidePanel() {
                   </button>
                 </div>
 
-                {appearanceMenuOpen ? (
-                  <div className="w-[168px] shrink-0 rounded-xl border border-neutral-300 bg-neutral-50 p-2 shadow-[var(--shadow-panel)]">
+                <AnimatedPopover
+                  open={appearanceMenuOpen}
+                  className="w-[168px] shrink-0 rounded-xl border border-neutral-300 bg-neutral-50 p-2 shadow-[var(--shadow-panel)]"
+                >
                     <button
                       type="button"
                       onClick={() => setTheme("light")}
@@ -612,10 +637,8 @@ export function SidePanel() {
                     >
                       Dark mode
                     </button>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+                </AnimatedPopover>
+            </AnimatedPopover>
           </div>
         </div>
       </aside>

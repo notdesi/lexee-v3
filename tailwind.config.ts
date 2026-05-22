@@ -1,4 +1,7 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
+
+const uiEase = "cubic-bezier(0.32, 0.72, 0, 1)";
 
 const config: Config = {
   content: [
@@ -44,7 +47,34 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    plugin(({ addUtilities }) => {
+      addUtilities({
+        ".ui-t-colors": {
+          transitionProperty:
+            "color, background-color, border-color, text-decoration-color, fill, stroke",
+          transitionDuration: "150ms",
+          transitionTimingFunction: uiEase,
+        },
+        ".ui-t-opacity": {
+          transitionProperty: "opacity",
+          transitionDuration: "200ms",
+          transitionTimingFunction: uiEase,
+        },
+        ".ui-t-transform": {
+          transitionProperty: "transform",
+          transitionDuration: "200ms",
+          transitionTimingFunction: uiEase,
+        },
+        ".ui-t-layout": {
+          transitionProperty:
+            "color, background-color, border-color, opacity, transform, box-shadow, border-radius, padding",
+          transitionDuration: "200ms",
+          transitionTimingFunction: uiEase,
+        },
+      });
+    }),
+  ],
 };
 
 export default config;

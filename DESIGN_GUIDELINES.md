@@ -2,7 +2,7 @@
 
 > This file is generated from `app/globals.css` and class usage in `app/` + `components/`. Do not edit manually.
 
-- Generated at: `2026-05-21T03:59:48.211Z`
+- Generated at: `2026-05-21T05:11:12.755Z`
 - Regenerate: `npm run design:guidelines`
 
 ## Purpose

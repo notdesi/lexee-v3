@@ -16,7 +16,10 @@ import {
   Share2,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatedPanel } from "@/components/AnimatedPanel";
+import { AnimatedPopover } from "@/components/AnimatedPopover";
+import { uiFadeSlide, uiMotionTransition } from "@/lib/ui-motion";
 import type { FormEvent, KeyboardEvent } from "react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { LexeeResponseEndSymbol } from "@/components/LexeeResponseEndSymbol";
@@ -158,41 +161,49 @@ const HISTORY_CONVERSATIONS: Record<string, HistoryConversation> = {
   },
 };
 
-const matterEase = [0.22, 1, 0.36, 1] as const;
-
 function MatterTextCrossfade({
   text,
   className,
-  display = "block",
+  display = "inline",
 }: {
   text: string;
   className?: string;
-  display?: "block" | "inline-block";
+  display?: "block" | "inline";
 }) {
+  const reduceMotion = useReducedMotion();
+  const isBlock = display === "block";
+
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.span
-        key={text}
-        initial={{ opacity: 0, y: display === "block" ? 5 : 3 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: display === "block" ? -5 : -3 }}
-        transition={{ duration: 0.22, ease: matterEase }}
-        className={[
-          display === "block" ? "block truncate" : "inline-block",
-          className,
-        ]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        {text}
-      </motion.span>
-    </AnimatePresence>
+    <span
+      className={[
+        isBlock ? "relative block min-w-0 w-full overflow-hidden" : "inline",
+      ].join(" ")}
+    >
+      <AnimatePresence initial={false}>
+        <motion.span
+          key={text}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={uiMotionTransition(reduceMotion, 0.15)}
+          className={[
+            isBlock ? "block truncate" : "inline",
+            className,
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          {text}
+        </motion.span>
+      </AnimatePresence>
+    </span>
   );
 }
 
 function HomeInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const reduceMotion = useReducedMotion();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -423,9 +434,14 @@ function HomeInner() {
     };
   }, []);
 
+  const messageCount = messages.length;
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isGenerating, generationProgress]);
+    if (messageCount === 0) return;
+    messagesEndRef.current?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }, [messageCount, reduceMotion]);
 
   const isSendDisabled = message.trim().length === 0 || isGenerating;
 
@@ -632,7 +648,7 @@ function HomeInner() {
         <div
         ref={matterMenuRef}
         className={[
-          "z-20 flex w-full shrink-0 justify-start bg-[var(--background)]",
+          "z-20 flex w-full shrink-0 justify-start bg-[var(--background)] ui-t-layout",
           chatStarted ? "border-b border-[color:var(--chat-outline)] pb-3 pt-3" : "pb-8 pt-2",
         ].join(" ")}
       >
@@ -640,23 +656,28 @@ function HomeInner() {
           <button
             type="button"
             onClick={() => setMatterMenuOpen((open) => !open)}
-            className="inline-flex min-w-0 max-w-[420px] items-center gap-2 rounded-md px-1 py-1 text-left text-body-md text-neutral-800 hover:bg-violet-50 hover:text-neutral-950"
+            className="inline-flex min-w-0 max-w-[420px] items-center gap-2 rounded-md px-1 py-1 text-left text-body-md text-neutral-800 ui-t-colors hover:bg-violet-50 hover:text-neutral-950"
             aria-label="Select matter"
           >
             <span className="min-w-0 flex-1 overflow-hidden text-left">
-              <MatterTextCrossfade text={selectedMatter ?? "No matter selected"} />
+              <MatterTextCrossfade
+                display="block"
+                text={selectedMatter ?? "No matter selected"}
+              />
             </span>
             <ChevronDown
               className={[
-                "h-4 w-4 shrink-0 text-neutral-700 transition-transform",
+                "h-4 w-4 shrink-0 text-neutral-700 ui-t-transform",
                 matterMenuOpen ? "rotate-180" : "",
               ].join(" ")}
               strokeWidth={1.75}
             />
           </button>
 
-          {matterMenuOpen ? (
-            <div className="absolute left-0 mt-2 w-[420px] rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]">
+          <AnimatedPopover
+            open={matterMenuOpen}
+            className="absolute left-0 mt-2 w-[420px] rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]"
+          >
               <div className="mb-2 flex items-center gap-2 rounded-lg border border-[color:var(--chat-outline-accent)] bg-violet-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
                 <Search className="h-4 w-4 text-neutral-500" strokeWidth={1.75} />
                 <input
@@ -718,14 +739,19 @@ function HomeInner() {
                   </p>
                 )}
               </div>
-            </div>
-          ) : null}
+          </AnimatedPopover>
         </div>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <AnimatePresence mode="wait" initial={false}>
       {!chatStarted ? (
-        <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto">
+        <motion.div
+          key="chat-empty"
+          {...uiFadeSlide(reduceMotion, { enterY: 8, exitY: -10 })}
+          transition={uiMotionTransition(reduceMotion, 0.22)}
+          className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto"
+        >
         <div className="mx-auto w-full max-w-3xl pb-16">
           <div className="flex flex-col items-center gap-12 px-0">
             <div className="flex items-center justify-center gap-3">
@@ -736,7 +762,7 @@ function HomeInner() {
                 height={32}
                 priority
               />
-              <h1 className="font-spectral text-[36px] leading-none tracking-[-0.02em] text-neutral-950">
+              <h1 className="select-none font-spectral text-[36px] leading-none tracking-[-0.02em] text-neutral-950">
                 Good Evening Matt!
               </h1>
             </div>
@@ -746,17 +772,16 @@ function HomeInner() {
                 {selectedMatter ? (
                   <motion.div
                     key="matter-strip-empty-state"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.22, ease: matterEase }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={uiMotionTransition(reduceMotion, 0.2)}
                     className="rounded-t-xl border border-b-0 border-[color:var(--chat-outline-accent)] bg-violet-50 px-3 py-2"
                   >
-                    <p className="text-[12px] leading-4 text-neutral-800">
-                      Matter selected:{" "}
+                    <p className="flex flex-wrap items-baseline gap-x-1 text-[12px] leading-4 text-neutral-800">
+                      <span>Matter selected:</span>
                       <MatterTextCrossfade
                         text={selectedMatter}
-                        display="inline-block"
                         className="text-neutral-950"
                       />
                     </p>
@@ -766,7 +791,7 @@ function HomeInner() {
 
               <div
                 className={[
-                  "rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-subtle)]",
+                  "rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-subtle)] ui-t-layout",
                   selectedMatter ? "rounded-b-xl rounded-t-none border-t-0" : "",
                 ].join(" ")}
               >
@@ -835,8 +860,10 @@ function HomeInner() {
                       />
                     </div>
 
-                    {inlineMatterMenuOpen ? (
-                      <div className="absolute bottom-full left-0 z-30 mb-2 w-full rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]">
+                    <AnimatedPopover
+                      open={inlineMatterMenuOpen}
+                      className="absolute bottom-full left-0 z-30 mb-2 w-full rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]"
+                    >
                         <div className="max-h-48 overflow-y-auto">
                           <button
                             type="button"
@@ -885,18 +912,30 @@ function HomeInner() {
                             <p className="px-2 py-2 text-[12px] leading-4 text-neutral-600">No matters found.</p>
                           )}
                         </div>
-                      </div>
-                    ) : null}
+                    </AnimatedPopover>
                   </div>
                 </div>
               ) : null}
             </div>
           </div>
         </div>
-        </div>
+        </motion.div>
       ) : (
-        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <motion.div
+          key="chat-active"
+          {...uiFadeSlide(reduceMotion, { enterY: 14, exitY: 8 })}
+          transition={uiMotionTransition(reduceMotion, 0.34)}
+          className="flex min-h-0 w-full min-w-0 flex-1 flex-col"
+        >
+          <motion.div
+            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{
+              ...uiMotionTransition(reduceMotion, 0.28),
+              delay: reduceMotion ? 0 : 0.06,
+            }}
+          >
           <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-col gap-3 px-4 pb-4 pt-10">
             {messages.map((chatMessage, messageIndex) =>
                 chatMessage.role === "user" ? (
@@ -906,7 +945,7 @@ function HomeInner() {
                     </div>
                     <div
                       className={[
-                        "mt-1 flex items-center justify-end gap-1 text-neutral-500 transition-opacity",
+                        "mt-1 flex items-center justify-end gap-1 text-neutral-500 ui-t-opacity",
                         "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
                         "group-focus-within:opacity-100 group-focus-within:pointer-events-auto",
                       ].join(" ")}
@@ -947,7 +986,7 @@ function HomeInner() {
                     />
                     <div
                       className={[
-                        "mt-2 flex h-6 items-center gap-1 text-neutral-500 transition-opacity",
+                        "mt-2 flex h-6 items-center gap-1 text-neutral-500 ui-t-opacity",
                         messageIndex === lastAssistantMessageIndex
                           ? "opacity-100"
                           : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
@@ -991,7 +1030,7 @@ function HomeInner() {
                       <button
                         type="button"
                         onClick={() => handleSummonsCategorySelect("MVA")}
-                        className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 px-4 py-3 text-left transition-colors hover:border-[color:var(--chat-outline-accent)] hover:bg-violet-50"
+                        className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 px-4 py-3 text-left ui-t-colors hover:border-[color:var(--chat-outline-accent)] hover:bg-violet-50"
                       >
                         <span className="text-body-md font-medium text-neutral-950">Summons</span>
                         <span className="inline-flex items-center rounded-full border border-[color:var(--chat-outline-accent)] bg-violet-50 px-2 py-1 text-[11px] font-medium leading-4 text-violet-700">
@@ -1001,7 +1040,7 @@ function HomeInner() {
                       <button
                         type="button"
                         onClick={() => handleSummonsCategorySelect("Slip and Fall")}
-                        className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 px-4 py-3 text-left transition-colors hover:border-[color:var(--chat-outline-accent)] hover:bg-violet-50"
+                        className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 px-4 py-3 text-left ui-t-colors hover:border-[color:var(--chat-outline-accent)] hover:bg-violet-50"
                       >
                         <span className="text-body-md font-medium text-neutral-950">Summons</span>
                         <span className="inline-flex items-center rounded-full border border-[color:var(--chat-outline-accent)] bg-violet-50 px-2 py-1 text-[11px] font-medium leading-4 text-violet-700">
@@ -1011,7 +1050,7 @@ function HomeInner() {
                     </div>
                     <div
                       className={[
-                        "mt-1 flex h-6 items-center gap-1 text-neutral-500 transition-opacity",
+                        "mt-1 flex h-6 items-center gap-1 text-neutral-500 ui-t-opacity",
                         messageIndex === lastAssistantMessageIndex
                           ? "opacity-100"
                           : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
@@ -1066,20 +1105,22 @@ function HomeInner() {
                             "Generated draft",
                           )
                         }
-                        className="mt-3 w-full rounded-xl border border-[color:var(--chat-outline)] p-3 text-left transition-colors hover:border-[color:var(--chat-outline-accent)]"
+                        className="mt-3 w-full rounded-xl border border-[color:var(--chat-outline)] p-3 text-left ui-t-colors hover:border-[color:var(--chat-outline-accent)]"
                       >
                         <div className="flex items-start gap-3">
                           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-violet-700">
                             <FileText className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-body-md font-medium text-neutral-950">
-                              Summons for{" "}
-                              <MatterTextCrossfade
-                                text={selectedMatter ?? "this matter"}
-                                display="inline-block"
-                                className="font-medium text-neutral-950"
-                              />
+                            <p className="flex min-w-0 items-baseline gap-x-1 text-body-md font-medium text-neutral-950">
+                              <span className="shrink-0">Summons for</span>
+                              <span className="min-w-0 flex-1 overflow-hidden">
+                                <MatterTextCrossfade
+                                  display="block"
+                                  text={selectedMatter ?? "this matter"}
+                                  className="truncate font-medium text-neutral-950"
+                                />
+                              </span>
                             </p>
                             <p className="mt-0.5 text-[12px] leading-4 text-neutral-600">PDF Document</p>
                           </div>
@@ -1098,7 +1139,7 @@ function HomeInner() {
                     ) : null}
                     <div
                       className={[
-                        "mt-1 flex h-6 items-center gap-1 text-neutral-500 transition-opacity",
+                        "mt-1 flex h-6 items-center gap-1 text-neutral-500 ui-t-opacity",
                         messageIndex === lastAssistantMessageIndex
                           ? "opacity-100"
                           : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
@@ -1162,25 +1203,32 @@ function HomeInner() {
             ) : null}
             <div ref={messagesEndRef} />
           </div>
-          </div>
+          </motion.div>
 
-          <div className="z-10 w-full shrink-0 bg-[var(--background)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+          <motion.div
+            className="z-10 w-full shrink-0 bg-[var(--background)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3"
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              ...uiMotionTransition(reduceMotion, 0.3),
+              delay: reduceMotion ? 0 : 0.1,
+            }}
+          >
             <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-col">
             <AnimatePresence initial={false}>
               {selectedMatter ? (
                 <motion.div
                   key="matter-strip-chat"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.22, ease: matterEase }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={uiMotionTransition(reduceMotion, 0.2)}
                   className="rounded-t-xl border border-b-0 border-[color:var(--chat-outline-accent)] bg-violet-50 px-3 py-2"
                 >
-                  <p className="text-[12px] leading-4 text-neutral-800">
-                    Matter selected:{" "}
+                  <p className="flex flex-wrap items-baseline gap-x-1 text-[12px] leading-4 text-neutral-800">
+                    <span>Matter selected:</span>
                     <MatterTextCrossfade
                       text={selectedMatter}
-                      display="inline-block"
                       className="text-neutral-950"
                     />
                   </p>
@@ -1190,7 +1238,7 @@ function HomeInner() {
 
             <div
               className={[
-                "rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-subtle)]",
+                "rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-subtle)] ui-t-layout",
                 selectedMatter ? "rounded-b-xl rounded-t-none border-t-0" : "",
               ].join(" ")}
             >
@@ -1238,15 +1286,17 @@ function HomeInner() {
               </div>
             </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
         </div>
       </div>
 
-      {documentPreviewOpen ? (
+      <AnimatedPanel open={documentPreviewOpen} className="shrink-0">
+        {documentPreviewOpen ? (
         <DocumentPreviewPanel
-          open={documentPreviewOpen}
+          open
           documents={documentCollection}
           activeIndex={documentActiveIndex}
           collectionTitle={documentCollectionTitle}
@@ -1259,7 +1309,8 @@ function HomeInner() {
           }
           onClose={() => setDocumentPreviewOpen(false)}
         />
-      ) : null}
+        ) : null}
+      </AnimatedPanel>
     </div>
   );
 }

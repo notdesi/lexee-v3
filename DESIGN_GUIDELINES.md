@@ -2,7 +2,7 @@
 
 > This file is generated from `app/globals.css` and class usage in `app/` + `components/`. Do not edit manually.
 
-- Generated at: `2026-05-21T05:11:12.755Z`
+- Generated at: `2026-05-25T05:01:52.738Z`
 - Regenerate: `npm run design:guidelines`
 
 ## Purpose
@@ -84,6 +84,9 @@
 - `--shadow-panel`: `0 8px 24px rgba(18, 18, 18, 0.12)`
 - `--shadow-popup`: `0 12px 28px rgba(40, 38, 64, 0.18)`
 - `--shadow-subtle`: `0 1px 2px rgba(18, 18, 18, 0.07)`
+- `--shadow-chatbox`: `0 1px 1px rgba(18, 18, 18, 0.03),
+      0 2px 6px rgba(18, 18, 18, 0.045),
+      0 8px 20px rgba(18, 18, 18, 0.06)`
 
 ### Dark Mode: Semantic Tokens
 - `--background`: `#1f1f1e`
@@ -106,6 +109,9 @@
 - `--shadow-panel`: `0 14px 36px rgba(0, 0, 0, 0.5)`
 - `--shadow-popup`: `0 22px 50px rgba(0, 0, 0, 0.58)`
 - `--shadow-subtle`: `0 1px 4px rgba(0, 0, 0, 0.36)`
+- `--shadow-chatbox`: `0 1px 2px rgba(0, 0, 0, 0.22),
+      0 4px 12px rgba(0, 0, 0, 0.28),
+      0 12px 28px rgba(0, 0, 0, 0.2)`
 
 ## Typography
 

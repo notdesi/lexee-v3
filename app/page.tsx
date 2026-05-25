@@ -791,7 +791,7 @@ function HomeInner() {
 
               <div
                 className={[
-                  "rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-subtle)] ui-t-layout",
+                  "rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-chatbox)] ui-t-layout",
                   selectedMatter ? "rounded-b-xl rounded-t-none border-t-0" : "",
                 ].join(" ")}
               >
@@ -1238,7 +1238,7 @@ function HomeInner() {
 
             <div
               className={[
-                "rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-subtle)] ui-t-layout",
+                "rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-chatbox)] ui-t-layout",
                 selectedMatter ? "rounded-b-xl rounded-t-none border-t-0" : "",
               ].join(" ")}
             >
@@ -1286,6 +1286,9 @@ function HomeInner() {
               </div>
             </div>
             </div>
+            <p className="mt-2 pb-1 text-center text-caption select-none">
+              Lexee is AI and can make mistakes. Please double-check responses.
+            </p>
           </motion.div>
         </motion.div>
       )}

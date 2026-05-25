@@ -15,7 +15,7 @@ export function HomeLoadingSkeleton() {
             <SkeletonBlock className="h-10 w-72 rounded-lg" />
 
             <div className="w-full max-w-2xl">
-              <div className="rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-subtle)]">
+              <div className="rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-chatbox)]">
                 <SkeletonBlock className="h-6 w-80" />
                 <div className="mt-2 flex items-center justify-between">
                   <SkeletonBlock className="h-8 w-8 rounded-md" />

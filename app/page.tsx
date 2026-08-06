@@ -21,10 +21,12 @@ import { AnimatedPanel } from "@/components/AnimatedPanel";
 import { AnimatedPopover } from "@/components/AnimatedPopover";
 import { uiFadeSlide, uiMotionTransition } from "@/lib/ui-motion";
 import type { FormEvent, KeyboardEvent } from "react";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LexeeResponseEndSymbol } from "@/components/LexeeResponseEndSymbol";
 import { MedicalSummaryDemoResponse } from "@/components/MedicalSummaryDemoResponse";
 import { DocumentPreviewPanel, type DocumentPreview } from "@/components/DocumentPreviewPanel";
+import { VoiceListeningPanel } from "@/components/VoiceListeningPanel";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { createSampleDocumentPreview } from "@/lib/document-preview-names";
 import {
   GENERATION_PHASES,
@@ -224,6 +226,17 @@ function HomeInner() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const generationAbortRef = useRef<AbortController | null>(null);
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const {
+    isSupported: isSpeechSupported,
+    transcript: voiceTranscript,
+    interimTranscript: voiceInterim,
+    error: voiceError,
+    start: startSpeech,
+    stop: stopSpeech,
+    abort: abortSpeech,
+    reset: resetSpeech,
+  } = useSpeechRecognition();
 
   const normalisePrompt = (prompt: string) =>
     prompt
@@ -231,6 +244,41 @@ function HomeInner() {
       .toLowerCase()
       .replace(/\s+/g, " ")
       .replace(/[?.!,]+$/g, "");
+
+  const beginVoiceMode = useCallback(() => {
+    if (!isSpeechSupported || isGenerating) return;
+    const started = startSpeech();
+    if (started) setIsVoiceMode(true);
+  }, [isGenerating, isSpeechSupported, startSpeech]);
+
+  const cancelVoiceMode = useCallback(() => {
+    abortSpeech();
+    resetSpeech();
+    setIsVoiceMode(false);
+    queueMicrotask(() => {
+      textareaRef.current?.focus();
+    });
+  }, [abortSpeech, resetSpeech]);
+
+  const confirmVoiceMode = useCallback(() => {
+    const draft = `${voiceTranscript}${voiceInterim}`.replace(/\s+/g, " ").trim();
+    stopSpeech();
+    if (draft) {
+      setMessage((prev) => {
+        const existing = prev.trim();
+        return existing ? `${existing} ${draft}` : draft;
+      });
+    }
+    resetSpeech();
+    setIsVoiceMode(false);
+    queueMicrotask(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.style.height = "0px";
+      el.style.height = `${el.scrollHeight}px`;
+    });
+  }, [resetSpeech, stopSpeech, voiceInterim, voiceTranscript]);
 
   useEffect(() => {
     if (!documentPreviewOpen) return;
@@ -795,47 +843,65 @@ function HomeInner() {
                   selectedMatter ? "rounded-b-xl rounded-t-none border-t-0" : "",
                 ].join(" ")}
               >
-                <textarea
-                  rows={1}
-                  onInput={resizeTextarea}
-                  onKeyDown={handleTextareaKeyDown}
-                  value={message}
-                  onChange={(event) => setMessage(event.target.value)}
-                  placeholder="Type @ for case knowledge context"
-                  className="w-full resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
-                />
+                {isVoiceMode ? (
+                  <VoiceListeningPanel
+                    transcript={voiceTranscript}
+                    interimTranscript={voiceInterim}
+                    error={voiceError}
+                    onCancel={cancelVoiceMode}
+                    onConfirm={confirmVoiceMode}
+                    disabledConfirm={
+                      `${voiceTranscript}${voiceInterim}`.trim().length === 0
+                    }
+                  />
+                ) : (
+                  <>
+                    <textarea
+                      ref={textareaRef}
+                      rows={1}
+                      onInput={resizeTextarea}
+                      onKeyDown={handleTextareaKeyDown}
+                      value={message}
+                      onChange={(event) => setMessage(event.target.value)}
+                      placeholder="Type @ for case knowledge context"
+                      className="w-full resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
+                    />
 
-                <div className="mt-1.5 flex items-center justify-between">
-                  <button
-                    type="button"
-                    aria-label="Add context"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--button-ghost-fg)] hover:bg-[var(--button-ghost-hover)] hover:text-[var(--foreground)]"
-                  >
-                    <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                  </button>
+                    <div className="mt-1.5 flex items-center justify-between">
+                      <button
+                        type="button"
+                        aria-label="Add context"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--button-ghost-fg)] hover:bg-[var(--button-ghost-hover)] hover:text-[var(--foreground)]"
+                      >
+                        <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                      </button>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      aria-label="Voice input"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--button-ghost-fg)] hover:bg-[var(--button-ghost-hover)] hover:text-[var(--foreground)]"
-                    >
-                      <Mic className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                    </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          aria-label="Voice input"
+                          onClick={beginVoiceMode}
+                          disabled={!isSpeechSupported || isGenerating}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--button-ghost-fg)] hover:bg-[var(--button-ghost-hover)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Mic className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                        </button>
 
-                    <button
-                      type="button"
-                      aria-label="Send message"
-                      onClick={() => {
-                        void sendMessage();
-                      }}
-                      disabled={isSendDisabled}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--button-primary-bg)] text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--button-primary-disabled-bg)] disabled:text-[var(--button-primary-disabled-fg)] disabled:hover:bg-[var(--button-primary-disabled-bg)]"
-                    >
-                      <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2} />
-                    </button>
-                  </div>
-                </div>
+                        <button
+                          type="button"
+                          aria-label="Send message"
+                          onClick={() => {
+                            void sendMessage();
+                          }}
+                          disabled={isSendDisabled}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--button-primary-bg)] text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--button-primary-disabled-bg)] disabled:text-[var(--button-primary-disabled-fg)] disabled:hover:bg-[var(--button-primary-disabled-bg)]"
+                        >
+                          <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2} />
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               <p className="mt-2 text-center text-caption select-none">
@@ -1246,48 +1312,65 @@ function HomeInner() {
                 selectedMatter ? "rounded-b-xl rounded-t-none border-t-0" : "",
               ].join(" ")}
             >
-              <textarea
-                ref={textareaRef}
-                rows={1}
-                onInput={resizeTextarea}
-                onKeyDown={handleTextareaKeyDown}
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Type @ for case knowledge context"
-                className="w-full resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
-              />
+              {isVoiceMode ? (
+                <VoiceListeningPanel
+                  transcript={voiceTranscript}
+                  interimTranscript={voiceInterim}
+                  error={voiceError}
+                  onCancel={cancelVoiceMode}
+                  onConfirm={confirmVoiceMode}
+                  disabledConfirm={
+                    `${voiceTranscript}${voiceInterim}`.trim().length === 0
+                  }
+                />
+              ) : (
+                <>
+                  <textarea
+                    ref={textareaRef}
+                    rows={1}
+                    onInput={resizeTextarea}
+                    onKeyDown={handleTextareaKeyDown}
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value)}
+                    placeholder="Type @ for case knowledge context"
+                    className="w-full resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
+                  />
 
-              <div className="mt-1.5 flex items-center justify-between">
-                <button
-                  type="button"
-                  aria-label="Add context"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--button-ghost-fg)] hover:bg-[var(--button-ghost-hover)] hover:text-[var(--foreground)]"
-                >
-                  <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                </button>
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <button
+                      type="button"
+                      aria-label="Add context"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--button-ghost-fg)] hover:bg-[var(--button-ghost-hover)] hover:text-[var(--foreground)]"
+                    >
+                      <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                    </button>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    aria-label="Voice input"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--button-ghost-fg)] hover:bg-[var(--button-ghost-hover)] hover:text-[var(--foreground)]"
-                  >
-                    <Mic className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                  </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label="Voice input"
+                        onClick={beginVoiceMode}
+                        disabled={!isSpeechSupported || isGenerating}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--button-ghost-fg)] hover:bg-[var(--button-ghost-hover)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Mic className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                      </button>
 
-                  <button
-                    type="button"
-                    aria-label="Send message"
-                    onClick={() => {
-                      void sendMessage();
-                    }}
-                    disabled={isSendDisabled}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--button-primary-bg)] text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--button-primary-disabled-bg)] disabled:text-[var(--button-primary-disabled-fg)] disabled:hover:bg-[var(--button-primary-disabled-bg)]"
-                  >
-                    <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2} />
-                  </button>
-                </div>
-              </div>
+                      <button
+                        type="button"
+                        aria-label="Send message"
+                        onClick={() => {
+                          void sendMessage();
+                        }}
+                        disabled={isSendDisabled}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--button-primary-bg)] text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--button-primary-disabled-bg)] disabled:text-[var(--button-primary-disabled-fg)] disabled:hover:bg-[var(--button-primary-disabled-bg)]"
+                      >
+                        <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2} />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
             </div>
             <p className="mt-2 pb-1 text-center text-caption select-none">

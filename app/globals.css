@@ -250,3 +250,32 @@
     color: var(--neutral-950);
   }
 }
+
+@layer components {
+  .voice-dotted-line {
+    background-image: radial-gradient(
+      circle,
+      var(--neutral-400) 1px,
+      transparent 1.25px
+    );
+    background-size: 8px 2px;
+    background-repeat: repeat-x;
+    background-position: left center;
+    animation: voice-dotted-drift 1.1s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .voice-dotted-line {
+      animation: none;
+    }
+  }
+}
+
+@keyframes voice-dotted-drift {
+  from {
+    background-position: 0 center;
+  }
+  to {
+    background-position: 8px center;
+  }
+}

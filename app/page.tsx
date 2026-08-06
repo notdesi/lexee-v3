@@ -53,17 +53,22 @@ import {
   SHARED_HISTORY_CONVERSATION_ID,
 } from "@/lib/history-chat";
 
-const MATTERS = [
-  "Murdock v. Metro Health",
-  "People v. N. Castle Holdings",
-  "State Bar Compliance - Q2",
-  "Acme Insurance Intake",
-  "Nelson & Murdock Retainer Draft",
-  "Geramita vs Ayal",
-  MEDICAL_SUMMARY_DEMO_MATTER,
+const MATTERS: { name: string; caseNumber: string }[] = [
+  { name: "Murdock v. Metro Health", caseNumber: "2024-CV-01842" },
+  { name: "People v. N. Castle Holdings", caseNumber: "2023-CR-09417" },
+  { name: "State Bar Compliance - Q2", caseNumber: "ADM-2026-004" },
+  { name: "Acme Insurance Intake", caseNumber: "CLM-2026-3318" },
+  { name: "Nelson & Murdock Retainer Draft", caseNumber: "ENG-2025-112" },
+  { name: "Geramita vs Ayal", caseNumber: "2025-CV-00671" },
+  { name: MEDICAL_SUMMARY_DEMO_MATTER, caseNumber: "2026-CV-01408" },
 ];
 
-const DEFAULT_SELECTED_MATTER = MATTERS[0];
+const DEFAULT_SELECTED_MATTER = MATTERS[0].name;
+
+function getMatterCaseNumber(matterName: string | null | undefined) {
+  if (!matterName) return null;
+  return MATTERS.find((matter) => matter.name === matterName)?.caseNumber ?? null;
+}
 
 type ChatMessage = {
   id: string;
@@ -293,18 +298,30 @@ function HomeInner() {
 
   const filteredMatters = useMemo(
     () =>
-      MATTERS.filter((matter) =>
-        matter.toLowerCase().includes(matterQuery.trim().toLowerCase()),
-      ),
+      MATTERS.filter((matter) => {
+        const query = matterQuery.trim().toLowerCase();
+        if (!query) return true;
+        return (
+          matter.name.toLowerCase().includes(query) ||
+          matter.caseNumber.toLowerCase().includes(query)
+        );
+      }),
     [matterQuery],
   );
   const inlineFilteredMatters = useMemo(
     () =>
-      MATTERS.filter((matter) =>
-        matter.toLowerCase().includes(inlineMatterQuery.trim().toLowerCase()),
-      ),
+      MATTERS.filter((matter) => {
+        const query = inlineMatterQuery.trim().toLowerCase();
+        if (!query) return true;
+        return (
+          matter.name.toLowerCase().includes(query) ||
+          matter.caseNumber.toLowerCase().includes(query)
+        );
+      }),
     [inlineMatterQuery],
   );
+
+  const selectedMatterCaseNumber = getMatterCaseNumber(selectedMatter);
   const lastAssistantMessageIndex = useMemo(
     () => messages.reduce((latest, msg, idx) => (msg.role === "assistant" ? idx : latest), -1),
     [messages],
@@ -704,14 +721,20 @@ function HomeInner() {
           <button
             type="button"
             onClick={() => setMatterMenuOpen((open) => !open)}
-            className="inline-flex min-w-0 max-w-[420px] items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-body-md text-neutral-800 ui-t-colors hover:bg-violet-50 hover:text-neutral-950"
+            className="inline-flex min-w-0 max-w-[420px] items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-neutral-800 ui-t-colors hover:bg-violet-50 hover:text-neutral-950"
             aria-label="Select matter"
           >
             <span className="min-w-0 flex-1 overflow-hidden text-left">
               <MatterTextCrossfade
                 display="block"
                 text={selectedMatter ?? "No matter selected"}
+                className="text-body-md"
               />
+              {selectedMatterCaseNumber ? (
+                <span className="mt-0.5 block truncate text-[12px] leading-4 text-neutral-500">
+                  {selectedMatterCaseNumber}
+                </span>
+              ) : null}
             </span>
             <ChevronDown
               className={[
@@ -761,22 +784,29 @@ function HomeInner() {
                 {filteredMatters.length > 0 ? (
                   filteredMatters.map((matter) => (
                     <button
-                      key={matter}
+                      key={matter.name}
                       type="button"
                       onClick={() => {
-                        setSelectedMatter(matter);
+                        setSelectedMatter(matter.name);
                         setMatterMenuOpen(false);
                         setMatterQuery("");
                       }}
                       className={[
-                        "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-body-md-secondary",
-                        selectedMatter === matter
+                        "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left",
+                        selectedMatter === matter.name
                           ? "bg-violet-100 text-neutral-950"
                           : "text-neutral-700 hover:bg-violet-50 hover:text-neutral-950",
                       ].join(" ")}
                     >
-                      <span className="truncate">{matter}</span>
-                      {selectedMatter === matter ? (
+                      <span className="min-w-0 flex-1 overflow-hidden">
+                        <span className="block truncate text-body-md-secondary">
+                          {matter.name}
+                        </span>
+                        <span className="mt-0.5 block truncate text-[12px] leading-4 text-neutral-500">
+                          {matter.caseNumber}
+                        </span>
+                      </span>
+                      {selectedMatter === matter.name ? (
                         <Check className="ml-auto h-4 w-4 shrink-0 text-neutral-700" strokeWidth={2} />
                       ) : null}
                     </button>
@@ -958,22 +988,29 @@ function HomeInner() {
                           {inlineFilteredMatters.length > 0 ? (
                             inlineFilteredMatters.map((matter) => (
                               <button
-                                key={matter}
+                                key={matter.name}
                                 type="button"
                                 onClick={() => {
-                                  setSelectedMatter(matter);
+                                  setSelectedMatter(matter.name);
                                   setInlineMatterQuery("");
                                   setInlineMatterMenuOpen(false);
                                 }}
                                 className={[
-                                  "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-body-md-secondary",
-                                  selectedMatter === matter
+                                  "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left",
+                                  selectedMatter === matter.name
                                     ? "bg-violet-100 text-neutral-950"
                                     : "text-neutral-700 hover:bg-violet-50 hover:text-neutral-950",
                                 ].join(" ")}
                               >
-                                <span className="truncate">{matter}</span>
-                                {selectedMatter === matter ? (
+                                <span className="min-w-0 flex-1 overflow-hidden">
+                                  <span className="block truncate text-body-md-secondary">
+                                    {matter.name}
+                                  </span>
+                                  <span className="mt-0.5 block truncate text-[12px] leading-4 text-neutral-500">
+                                    {matter.caseNumber}
+                                  </span>
+                                </span>
+                                {selectedMatter === matter.name ? (
                                   <Check className="ml-auto h-4 w-4 shrink-0 text-neutral-700" strokeWidth={2} />
                                 ) : null}
                               </button>

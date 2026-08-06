@@ -41,9 +41,10 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
-        serif: ["var(--font-spectral)", "Georgia", "serif"],
+        serif: ["var(--font-tiempos-headline)", "Georgia", "serif"],
         inter: ["var(--font-inter)", "system-ui", "sans-serif"],
-        spectral: ["var(--font-spectral)", "Georgia", "serif"],
+        "tiempos-headline": ["var(--font-tiempos-headline)", "Georgia", "serif"],
+        "tiempos-text": ["var(--font-tiempos-text)", "Georgia", "serif"],
       },
     },
   },

@@ -24,11 +24,12 @@ Then open `http://localhost:3000`.
 
 ## Notes
 
-- Fonts are configured in `app/layout.tsx` using `next/font` (Inter + Spectral).
+- Fonts are configured in `app/layout.tsx` using `next/font` (Inter + Tiempos Headline/Text).
 - Design tokens:
   - Color CSS variables live in `app/globals.css`
   - Tailwind colors map to those variables in `tailwind.config.ts`
 - Type scale utility classes are defined in `app/globals.css` under `@layer components`:
   - Inter: `text-body-lg`, `text-body-md`, `text-body-md-secondary`, `text-caption`
-  - Spectral (AI responses): `text-response-lg`, `text-response-md`
+  - Tiempos Text (AI responses): `text-response-lg`, `text-response-md`
+  - Tiempos Headline (brand/titles): `font-tiempos-headline`
 

@@ -181,7 +181,7 @@ export function SearchModal({ open, onClose }: SearchModalProps) {
           <div className="min-w-0">
             <h2
               id={titleId}
-              className="font-spectral text-[28px] leading-none tracking-[-0.02em] text-neutral-950"
+              className="font-tiempos-headline text-[28px] leading-none tracking-[-0.015em] text-neutral-950"
             >
               Search
             </h2>

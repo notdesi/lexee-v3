@@ -37,7 +37,7 @@ export default function SkillsPage() {
       <div className="mx-auto w-full max-w-5xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="font-spectral text-[32px] leading-none tracking-[-0.02em] text-neutral-950">
+            <h1 className="font-tiempos-headline text-[32px] leading-none tracking-[-0.015em] text-neutral-950">
               Skills
             </h1>
             <p className="mt-2 text-body-md-secondary">

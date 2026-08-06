@@ -648,7 +648,7 @@ function HomeInner() {
         <div
         ref={matterMenuRef}
         className={[
-          "z-20 flex w-full shrink-0 justify-start bg-[var(--background)] ui-t-layout",
+          "z-20 flex w-full shrink-0 justify-end bg-[var(--background)] ui-t-layout pr-4",
           chatStarted ? "border-b border-[color:var(--chat-outline)] pb-3 pt-3" : "pb-8 pt-2",
         ].join(" ")}
       >
@@ -656,7 +656,7 @@ function HomeInner() {
           <button
             type="button"
             onClick={() => setMatterMenuOpen((open) => !open)}
-            className="inline-flex min-w-0 max-w-[420px] items-center gap-2 rounded-md px-1 py-1 text-left text-body-md text-neutral-800 ui-t-colors hover:bg-violet-50 hover:text-neutral-950"
+            className="inline-flex min-w-0 max-w-[420px] items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-body-md text-neutral-800 ui-t-colors hover:bg-violet-50 hover:text-neutral-950"
             aria-label="Select matter"
           >
             <span className="min-w-0 flex-1 overflow-hidden text-left">
@@ -676,7 +676,7 @@ function HomeInner() {
 
           <AnimatedPopover
             open={matterMenuOpen}
-            className="absolute left-0 mt-2 w-[420px] rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]"
+            className="absolute right-0 mt-2 w-[420px] rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]"
           >
               <div className="mb-2 flex items-center gap-2 rounded-lg border border-[color:var(--chat-outline-accent)] bg-violet-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
                 <Search className="h-4 w-4 text-neutral-500" strokeWidth={1.75} />
@@ -762,7 +762,7 @@ function HomeInner() {
                 height={32}
                 priority
               />
-              <h1 className="select-none font-spectral text-[36px] leading-none tracking-[-0.02em] text-neutral-950">
+              <h1 className="select-none font-tiempos-text text-[32px] leading-none tracking-[-0.015em] text-neutral-950">
                 Good Evening Matt!
               </h1>
             </div>
@@ -837,6 +837,10 @@ function HomeInner() {
                   </div>
                 </div>
               </div>
+
+              <p className="mt-2 text-center text-caption select-none">
+                Lexee is AI and can make mistakes. Please double-check responses.
+              </p>
 
               {!selectedMatter ? (
                 <div className="mt-8 rounded-xl border border-[color:var(--chat-outline-accent)] bg-violet-50/70 p-3 shadow-[var(--shadow-card)]">

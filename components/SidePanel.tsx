@@ -6,22 +6,26 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Brain,
+  Briefcase,
   ChevronRight,
-  Folder,
+  CircleCheck,
+  History,
   MoreVertical,
-  MonitorCog,
+  PackageOpen,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
   Pin,
   Plus,
   Search,
+  Settings,
   SunMoon,
   Trash2,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AnimatedPopover } from "@/components/AnimatedPopover";
 import { SearchModal } from "@/components/SearchModal";
+import { SettingsModal } from "@/components/SettingsModal";
 import { uiMotionTransition } from "@/lib/ui-motion";
 import {
   HISTORY_CHAT_ENTRIES,
@@ -48,10 +52,11 @@ export function SidePanel() {
   );
   const [historyRowMenuId, setHistoryRowMenuId] = useState<string | null>(null);
   const recentMenuRef = useRef<HTMLDivElement | null>(null);
-  const [projectsExpanded, setProjectsExpanded] = useState(false);
+  const [recentExpanded, setRecentExpanded] = useState(true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [appearanceMenuOpen, setAppearanceMenuOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window === "undefined") return "light";
     const storedTheme = window.localStorage.getItem("theme");
@@ -204,11 +209,11 @@ export function SidePanel() {
         },
       },
       {
-        key: "projects",
-        label: "Projects",
-        icon: Folder,
+        key: "artifacts",
+        label: "Artifacts",
+        icon: PackageOpen,
         onClick: () => {
-          // Prototype: replace with real projects page later.
+          // Prototype: replace with real artifacts page later.
         },
       },
       {
@@ -219,15 +224,31 @@ export function SidePanel() {
           router.push("/skills");
         },
       },
+      {
+        key: "todo",
+        label: "To-Do",
+        icon: CircleCheck,
+        onClick: () => {
+          // Prototype: replace with real to-do page later.
+        },
+      },
+      {
+        key: "jobs",
+        label: "Jobs",
+        icon: Briefcase,
+        onClick: () => {
+          // Prototype: replace with real jobs page later.
+        },
+      },
+      {
+        key: "history",
+        label: "History",
+        icon: History,
+        onClick: () => {
+          // Prototype: replace with real chat history later.
+        },
+      },
   ];
-
-  const historyNavItem: SidePanelItem = {
-    key: "history",
-    label: "Recent",
-    onClick: () => {
-      // Prototype: replace with real chat history later.
-    },
-  };
 
   /**
    * One primary nav row highlighted at a time. When a history thread is open on `/`,
@@ -238,8 +259,14 @@ export function SidePanel() {
     if (pathname === "/skills" || pathname.startsWith("/skills/")) return "skills";
     if (pathname === "/") {
       if (selectedHistoryConversationId) return null;
-      if (selectedKey === "projects") return "projects";
       if (selectedKey === "history") return "history";
+      if (
+        selectedKey === "artifacts" ||
+        selectedKey === "todo" ||
+        selectedKey === "jobs"
+      ) {
+        return selectedKey;
+      }
       return "new-chat";
     }
     return selectedKey || null;
@@ -247,16 +274,17 @@ export function SidePanel() {
 
   const renderSidebarNavRow = (item: SidePanelItem) => {
     const Icon = item.icon;
-    const canExpand = item.key === "projects";
+    const canExpand = item.key === "history";
     const isActive = activeNavKey === item.key;
     const isHistory = item.key === "history";
+    const isNewChat = item.key === "new-chat";
     return (
-      <div key={item.key}>
+      <div key={item.key} className={isHistory ? "mt-8" : undefined}>
         <div
           className={[
             "group mx-2 flex w-[calc(100%-16px)] items-center rounded-[6px] ui-t-colors",
             "text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950",
-            isActive ? "bg-neutral-200 text-neutral-950" : "",
+            isActive || isNewChat ? "bg-neutral-200 text-neutral-950" : "",
           ].join(" ")}
         >
           <button
@@ -264,18 +292,18 @@ export function SidePanel() {
             aria-label={collapsed ? item.label : undefined}
             onClick={() => {
               setSelectedKey(item.key);
+              if (isHistory) {
+                setRecentExpanded((value) => !value);
+              }
               item.onClick?.();
             }}
-            className={[
-              "flex min-w-0 flex-1 items-center gap-2 px-[10px] text-left text-inherit hover:text-inherit focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-violet-300",
-              isHistory ? "py-1" : "py-[6px]",
-            ].join(" ")}
+            className="flex min-w-0 flex-1 items-center gap-2 px-[10px] py-[6px] text-left text-inherit hover:text-inherit focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-violet-300"
           >
             {Icon ? (
               <span
                 className={[
                   "flex h-5 w-5 shrink-0 items-center justify-center",
-                  item.key === "new-chat"
+                  isNewChat
                     ? "h-6 w-6 rounded-full bg-neutral-300 text-neutral-950"
                     : "",
                 ].join(" ")}
@@ -286,21 +314,11 @@ export function SidePanel() {
             <span
               aria-hidden={collapsed}
               className={[
-                "min-w-0 truncate transition-[opacity,max-width] duration-200 ease-out motion-reduce:transition-none",
+                "min-w-0 truncate text-body-md-secondary leading-[20px] transition-[opacity,max-width] duration-200 ease-out motion-reduce:transition-none",
                 collapsed
                   ? "max-w-0 overflow-hidden opacity-0"
                   : "max-w-[200px] opacity-100",
-                isHistory
-                  ? [
-                      !collapsed ? "font-inter text-[12px] leading-4" : "",
-                      isActive && !collapsed ? "text-neutral-950" : !collapsed ? "text-neutral-700" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")
-                  : [
-                      "text-body-md-secondary leading-[20px]",
-                      isActive && !collapsed ? "text-neutral-950" : "",
-                    ].join(" "),
+                (isActive || isNewChat) && !collapsed ? "text-neutral-950" : "",
               ].join(" ")}
             >
               {item.label}
@@ -309,18 +327,17 @@ export function SidePanel() {
           {!collapsed && canExpand ? (
             <button
               type="button"
-              aria-label={`Expand ${item.label}`}
+              aria-label={recentExpanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
+              aria-expanded={recentExpanded}
               onClick={() => {
-                if (item.key === "projects") {
-                  setProjectsExpanded((value) => !value);
-                }
+                setRecentExpanded((value) => !value);
               }}
               className="mr-1 inline-flex shrink-0 items-center justify-center rounded-sm px-1 py-1 text-neutral-700 opacity-0 ui-t-opacity hover:text-neutral-950 group-hover:opacity-100"
             >
               <ChevronRight
                 className={[
                   "h-4 w-4 ui-t-transform",
-                  item.key === "projects" && projectsExpanded ? "rotate-90" : "",
+                  recentExpanded ? "rotate-90" : "",
                 ].join(" ")}
                 strokeWidth={1.75}
               />
@@ -328,21 +345,7 @@ export function SidePanel() {
           ) : null}
         </div>
 
-        {!collapsed && item.key === "projects" && projectsExpanded ? (
-          <div className="mt-1 flex flex-col gap-1 pb-1 px-2">
-            {["Lead", "Intake", "Matter"].map((subItem) => (
-              <button
-                key={subItem}
-                type="button"
-                className="rounded-[6px] px-2 py-1 text-left font-inter text-[12px] leading-4 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
-              >
-                {subItem}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        {!collapsed && item.key === "history" ? (
+        {!collapsed && isHistory && recentExpanded ? (
           <div className="mt-0 flex flex-col gap-0.5 pb-1 px-2">
             {sortedRecentEntries.map((entry) => {
               const entryActive =
@@ -497,7 +500,7 @@ export function SidePanel() {
               className="flex h-14 min-w-0 flex-1 items-center justify-start px-[10px] rounded-md -translate-x-px"
               aria-label="Lexee"
             >
-              <span className="truncate font-spectral text-[20px] leading-none tracking-[-0.02em] text-neutral-950">
+              <span className="truncate font-tiempos-headline text-[20px] leading-none tracking-[-0.01em] text-neutral-950">
                 Lexee
               </span>
             </button>
@@ -527,11 +530,6 @@ export function SidePanel() {
           <div className="flex flex-col gap-1">
             {primaryNavItems.map((item) => renderSidebarNavRow(item))}
           </div>
-          {!collapsed ? (
-            <div className="mt-10 flex flex-col gap-1">
-              {renderSidebarNavRow(historyNavItem)}
-            </div>
-          ) : null}
         </nav>
 
         <div className="shrink-0 border-t border-neutral-200 p-2">
@@ -588,9 +586,14 @@ export function SidePanel() {
 
                   <button
                     type="button"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      setAppearanceMenuOpen(false);
+                      setSettingsModalOpen(true);
+                    }}
                     className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-body-md-secondary text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950"
                   >
-                    <MonitorCog className="h-4 w-4" strokeWidth={1.75} />
+                    <Settings className="h-4 w-4" strokeWidth={1.75} />
                     <span>Settings</span>
                   </button>
 
@@ -644,6 +647,10 @@ export function SidePanel() {
       </aside>
 
       <SearchModal open={searchModalOpen} onClose={() => setSearchModalOpen(false)} />
+      <SettingsModal
+        open={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+      />
     </div>
   );
 }

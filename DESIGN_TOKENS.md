@@ -73,21 +73,21 @@ This document is the canonical token reference for the frontend-only prototype.
   - `letter-spacing`: `0px`
   - `color`: `var(--neutral-500)`
 
-### AI Response Text (Spectral)
+### AI Response Text (Tiempos Text)
 
 - `text-response-lg`
-  - `font-family`: `var(--font-spectral), Georgia, serif`
+  - `font-family`: `var(--font-tiempos-text), Georgia, serif`
   - `font-size`: `18px`
   - `font-weight`: `500`
-  - `line-height`: `22px`
-  - `letter-spacing`: `-1px`
+  - `line-height`: `26px`
+  - `letter-spacing`: `-0.01em`
   - `color`: `var(--neutral-950)`
 
 - `text-response-md`
-  - `font-family`: `var(--font-spectral), Georgia, serif`
+  - `font-family`: `var(--font-tiempos-text), Georgia, serif`
   - `font-size`: `16px`
   - `font-weight`: `400`
-  - `line-height`: `22px`
+  - `line-height`: `24px`
   - `letter-spacing`: `0px`
   - `color`: `var(--neutral-950)`
 
@@ -98,7 +98,8 @@ Defined in `tailwind.config.ts`:
 - `colors.violet.50..950` map to `var(--violet-*)`
 - `colors.neutral.50..950` map to `var(--neutral-*)`
 - `fontFamily.inter` and `fontFamily.sans` use `--font-inter`
-- `fontFamily.spectral` and `fontFamily.serif` use `--font-spectral`
+- `fontFamily.tiempos-headline` and `fontFamily.serif` use `--font-tiempos-headline`
+- `fontFamily.tiempos-text` uses `--font-tiempos-text`
 
 ## Usage Notes
 

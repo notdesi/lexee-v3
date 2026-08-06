@@ -19,7 +19,7 @@ type MedicalSummaryDemoResponseProps = {
 export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: MedicalSummaryDemoResponseProps) {
   return (
     <article className="w-full text-response-md text-neutral-950">
-      <h2 className="font-spectral text-[18px] font-semibold leading-snug tracking-tight text-neutral-950">
+      <h2 className="font-tiempos-headline text-[18px] font-medium leading-snug tracking-tight text-neutral-950">
         MEDICAL SUMMARY
       </h2>
 
@@ -38,7 +38,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
       <hr className="my-5 border-neutral-300" />
 
       <section className="space-y-3">
-        <h3 className="font-spectral text-[17px] font-semibold leading-snug text-neutral-950">
+        <h3 className="font-tiempos-headline text-[17px] font-medium leading-snug text-neutral-950">
           Accident Description
         </h3>
         <p className="text-neutral-950">
@@ -63,7 +63,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
       <hr className="my-5 border-neutral-300" />
 
       <section className="space-y-3">
-        <h3 className="font-spectral text-[17px] font-semibold leading-snug text-neutral-950">
+        <h3 className="font-tiempos-headline text-[17px] font-medium leading-snug text-neutral-950">
           Initial Emergency Treatment
         </h3>
         <p className="text-neutral-950">
@@ -106,7 +106,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
       <hr className="my-5 border-neutral-300" />
 
       <section className="space-y-3">
-        <h3 className="font-spectral text-[17px] font-semibold leading-snug text-neutral-950">
+        <h3 className="font-tiempos-headline text-[17px] font-medium leading-snug text-neutral-950">
           Follow-Up Medical Care
         </h3>
         <p className="text-neutral-950">
@@ -139,7 +139,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
       <hr className="my-5 border-neutral-300" />
 
       <section className="space-y-3">
-        <h3 className="font-spectral text-[17px] font-semibold leading-snug text-neutral-950">MRI Findings</h3>
+        <h3 className="font-tiempos-headline text-[17px] font-medium leading-snug text-neutral-950">MRI Findings</h3>
         <ul className="list-disc space-y-1 pl-6 text-neutral-950">
           <li>Disc bulge at C5-C6 with mild foraminal narrowing</li>
           <li>Disc protrusion at L4-L5</li>
@@ -157,7 +157,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
       <hr className="my-5 border-neutral-300" />
 
       <section className="space-y-3">
-        <h3 className="font-spectral text-[17px] font-semibold leading-snug text-neutral-950">
+        <h3 className="font-tiempos-headline text-[17px] font-medium leading-snug text-neutral-950">
           Conservative Treatment
         </h3>
         <p className="text-neutral-950">Plaintiff participated in a course of conservative treatment, including:</p>
@@ -187,7 +187,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
       <hr className="my-5 border-neutral-300" />
 
       <section className="space-y-3">
-        <h3 className="font-spectral text-[17px] font-semibold leading-snug text-neutral-950">
+        <h3 className="font-tiempos-headline text-[17px] font-medium leading-snug text-neutral-950">
           Specialist Evaluations
         </h3>
         <p className="text-neutral-950">
@@ -221,7 +221,7 @@ export function MedicalSummaryDemoResponse({ onCitationClick, onSourcesClick }: 
       <hr className="my-5 border-neutral-300" />
 
       <section className="space-y-3">
-        <h3 className="font-spectral text-[17px] font-semibold leading-snug text-neutral-950">Current Condition</h3>
+        <h3 className="font-tiempos-headline text-[17px] font-medium leading-snug text-neutral-950">Current Condition</h3>
         <p className="text-neutral-950">
           As a result of the motor vehicle accident, Plaintiff continues to experience ongoing neck pain,
           lower back pain, headaches, intermittent radiating symptoms, and functional limitations affecting

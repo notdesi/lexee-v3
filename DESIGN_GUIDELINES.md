@@ -2,7 +2,7 @@
 
 > This file is generated from `app/globals.css` and class usage in `app/` + `components/`. Do not edit manually.
 
-- Generated at: `2026-05-25T05:01:52.738Z`
+- Generated at: `2026-08-06T08:23:17.512Z`
 - Regenerate: `npm run design:guidelines`
 
 ## Purpose
@@ -150,18 +150,18 @@
   - `color`: `var(--neutral-600)`
 
 ### `text-response-lg`
-- `font-family`: `var(--font-spectral), Georgia, serif`
+- `font-family`: `var(--font-tiempos-text), Georgia, serif`
 - `font-size`: `18px`
 - `font-weight`: `500`
-- `line-height`: `22px`
-- `letter-spacing`: `-1px`
+- `line-height`: `26px`
+- `letter-spacing`: `-0.01em`
 - `color`: `var(--neutral-950)`
 
 ### `text-response-md`
-- `font-family`: `var(--font-spectral), Georgia, serif`
+- `font-family`: `var(--font-tiempos-text), Georgia, serif`
 - `font-size`: `16px`
 - `font-weight`: `400`
-- `line-height`: `22px`
+- `line-height`: `24px`
 - `letter-spacing`: `0px`
 - `color`: `var(--neutral-950)`
 
@@ -187,7 +187,7 @@
 - `mt-0.5` (used 3x)
 - `mt-1` (used 11x)
 - `mt-1.5` (used 4x)
-- `mt-2` (used 9x)
+- `mt-2` (used 10x)
 - `mt-3` (used 10x)
 - `mt-4` (used 2x)
 - `mt-5` (used 1x)
@@ -199,7 +199,7 @@
 - `p-2` (used 7x)
 - `p-3` (used 3x)
 - `p-4` (used 1x)
-- `pb-1` (used 3x)
+- `pb-1` (used 4x)
 - `pb-3` (used 1x)
 - `pb-4` (used 2x)
 - `pb-6` (used 1x)

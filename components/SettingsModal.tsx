@@ -10,7 +10,6 @@ import {
   CreditCard,
   Download,
   LayoutGrid,
-  Lock,
   Printer,
   Search,
   Settings2,
@@ -35,7 +34,10 @@ type SettingsNavItem = {
   icon: ComponentType<{ className?: string; strokeWidth?: number }>;
 };
 
-const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
+/** Temporarily hide Billing UI — set to `true` to restore nav + search. */
+const SHOW_BILLING_AND_PURCHASE_HISTORY = false;
+
+const SETTINGS_NAV_ITEMS_ALL: SettingsNavItem[] = [
   { id: "configuration", label: "Configuration", icon: Settings2 },
   { id: "usage", label: "Usage", icon: LayoutGrid },
   { id: "billing", label: "Billing and purchase history", icon: CreditCard },
@@ -47,6 +49,10 @@ const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   },
 ];
 
+const SETTINGS_NAV_ITEMS: SettingsNavItem[] = SHOW_BILLING_AND_PURCHASE_HISTORY
+  ? SETTINGS_NAV_ITEMS_ALL
+  : SETTINGS_NAV_ITEMS_ALL.filter((item) => item.id !== "billing");
+
 type SettingsSearchResult = {
   id: string;
   label: string;
@@ -54,11 +60,11 @@ type SettingsSearchResult = {
   navId: SettingsNavId;
   sectionId?: SettingsSectionId;
   usagePage?: "overview" | "logs";
-  billingPage?: "overview" | "monthly-bills" | "invoices";
+  billingPage?: "overview" | "monthly-bills";
   keywords: string[];
 };
 
-const SETTINGS_SEARCH_INDEX: SettingsSearchResult[] = [
+const SETTINGS_SEARCH_INDEX_ALL: SettingsSearchResult[] = [
   {
     id: "nav-configuration",
     label: "Configuration",
@@ -98,13 +104,6 @@ const SETTINGS_SEARCH_INDEX: SettingsSearchResult[] = [
     keywords: ["usage", "limits", "quota", "credits", "billing cycle", "activity"],
   },
   {
-    id: "section-system-usage",
-    label: "System usage",
-    description: "Storage and seats · Usage",
-    navId: "usage",
-    keywords: ["system", "storage", "seats", "consumption", "workspace"],
-  },
-  {
     id: "section-firm-usage",
     label: "Firm-wide Usage",
     description: "Credits · Usage",
@@ -120,6 +119,21 @@ const SETTINGS_SEARCH_INDEX: SettingsSearchResult[] = [
     keywords: ["logs", "activity", "tokens", "requests", "history"],
   },
   {
+    id: "section-document-processing",
+    label: "Document Processing",
+    description: "Matter import costs · Usage",
+    navId: "usage",
+    keywords: [
+      "document",
+      "processing",
+      "import",
+      "pages",
+      "matter",
+      "async",
+      "ocr",
+    ],
+  },
+  {
     id: "section-monthly-bill",
     label: "Total Monthly bill",
     description: "Monthly spend breakdown · Billing",
@@ -128,17 +142,23 @@ const SETTINGS_SEARCH_INDEX: SettingsSearchResult[] = [
     keywords: ["monthly", "bill", "invoice", "spend", "august", "july", "june"],
   },
   {
-    id: "section-invoices",
-    label: "Invoices",
-    description: "Invoice history · Billing",
+    id: "section-purchase-history",
+    label: "Purchase History",
+    description: "Receipts and one-off purchases · Billing",
     navId: "billing",
-    billingPage: "invoices",
-    keywords: ["invoices", "invoice", "paid", "receipt", "export", "print"],
+    keywords: [
+      "purchase",
+      "history",
+      "receipt",
+      "paid",
+      "credits",
+      "transactions",
+    ],
   },
   {
     id: "nav-billing",
     label: "Billing and purchase history",
-    description: "Plan, payment method, invoices and AI credit spend by model",
+    description: "Plan and AI credit spend by model",
     navId: "billing",
     keywords: ["billing", "purchase", "history", "invoice", "plan", "payment", "card"],
   },
@@ -194,10 +214,17 @@ const SETTINGS_SEARCH_INDEX: SettingsSearchResult[] = [
   },
 ];
 
+const SETTINGS_SEARCH_INDEX: SettingsSearchResult[] =
+  SHOW_BILLING_AND_PURCHASE_HISTORY
+    ? SETTINGS_SEARCH_INDEX_ALL
+    : SETTINGS_SEARCH_INDEX_ALL.filter((item) => item.navId !== "billing");
+
 type ModelOption = {
   id: string;
   label: string;
   description: string;
+  inputTokenRate: string;
+  outputTokenRate: string;
 };
 
 const RESEARCH_MODELS: ModelOption[] = [
@@ -206,18 +233,24 @@ const RESEARCH_MODELS: ModelOption[] = [
     label: "Claude Opus 4",
     description:
       "Anthropic's most capable model — strongest for nuanced legal reasoning and long-document review.",
+    inputTokenRate: "$15.00 / 1M tokens",
+    outputTokenRate: "$75.00 / 1M tokens",
   },
   {
     id: "claude-sonnet-4",
     label: "Claude Sonnet 4",
     description:
       "A balanced Anthropic model — nearly as capable as Opus at a lower cost and faster response time.",
+    inputTokenRate: "$3.00 / 1M tokens",
+    outputTokenRate: "$15.00 / 1M tokens",
   },
   {
     id: "gpt-4o",
     label: "GPT-4o",
     description:
       "OpenAI's flagship model — strong general reasoning, a good alternative when you want a second opinion.",
+    inputTokenRate: "$2.50 / 1M tokens",
+    outputTokenRate: "$10.00 / 1M tokens",
   },
 ];
 
@@ -227,12 +260,16 @@ const QUICK_MODELS: ModelOption[] = [
     label: "GPT-4o mini",
     description:
       "A compact, low-cost OpenAI model — fast responses for routine drafting and short answers.",
+    inputTokenRate: "$0.15 / 1M tokens",
+    outputTokenRate: "$0.60 / 1M tokens",
   },
   {
     id: "claude-haiku",
     label: "Claude Haiku",
     description:
       "Anthropic's fastest model — near-instant replies for simple, high-volume tasks.",
+    inputTokenRate: "$0.80 / 1M tokens",
+    outputTokenRate: "$4.00 / 1M tokens",
   },
 ];
 
@@ -305,23 +342,6 @@ const CLIENT_ACQUISITION_LOGS: ClientAcquisitionLogEntry[] = [
     cost: 2.55,
   },
 ];
-
-const SYSTEM_USAGE_METRICS = [
-  {
-    id: "storage",
-    label: "Storage",
-    used: 82,
-    total: 200,
-    unit: "GB",
-  },
-  {
-    id: "seats",
-    label: "Seats active",
-    used: 11,
-    total: 12,
-    unit: "users",
-  },
-] as const;
 
 type UsageLogEntry = {
   id: string;
@@ -428,93 +448,646 @@ const USAGE_LOGS: UsageLogEntry[] = [
 
 const USAGE_LOGS_PREVIEW_COUNT = 5;
 
+type DocumentProcessingStatus = "completed" | "processing" | "failed";
+
+type DocumentProcessingJob = {
+  id: string;
+  matter: string;
+  pages: number;
+  status: DocumentProcessingStatus;
+  submitted: string;
+  cost: number | null;
+};
+
+const DOCUMENT_PROCESSING_JOBS: DocumentProcessingJob[] = [
+  {
+    id: "doc-1",
+    matter: "Gatling v. City Transit",
+    pages: 214,
+    status: "completed",
+    submitted: "Aug 6, 2026 9:10 AM",
+    cost: 10.7,
+  },
+  {
+    id: "doc-2",
+    matter: "Webb Estate Matter",
+    pages: 88,
+    status: "processing",
+    submitted: "Aug 6, 2026 11:40 AM",
+    cost: null,
+  },
+  {
+    id: "doc-3",
+    matter: "Diaz Injury Claim",
+    pages: 42,
+    status: "completed",
+    submitted: "Aug 5, 2026 3:22 PM",
+    cost: 2.1,
+  },
+  {
+    id: "doc-4",
+    matter: "Kim Contract Review",
+    pages: 15,
+    status: "failed",
+    submitted: "Aug 5, 2026 1:05 PM",
+    cost: null,
+  },
+];
+
+const DOCUMENT_PROCESSING_STATUS_LABEL: Record<DocumentProcessingStatus, string> =
+  {
+    completed: "Completed",
+    processing: "Processing",
+    failed: "Failed",
+  };
+
 function formatCredits(value: number) {
   return value.toLocaleString("en-US");
 }
 
-function UsageProgressRow({
-  label,
-  used,
-  total,
-  unit,
-}: {
+function getUsageLogDateLabel(time: string) {
+  const match = time.match(/^([A-Za-z]+ \d{1,2}, \d{4})/);
+  return match?.[1] ?? time;
+}
+
+function uniqueSorted(values: string[]) {
+  return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+}
+
+function toggleFilterValue(values: string[], option: string) {
+  return values.includes(option)
+    ? values.filter((value) => value !== option)
+    : [...values, option];
+}
+
+function formatFilterTriggerLabel(label: string, values: string[]) {
+  if (values.length === 0) return label;
+  if (values.length === 1) return values[0];
+  return `${label} · ${values.length}`;
+}
+
+type UsageLogFilterDropdownProps = {
   label: string;
-  used: number;
-  total: number;
-  unit: string;
-}) {
-  const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+  values: string[];
+  options: string[];
+  allLabel: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChange: (values: string[]) => void;
+};
+
+function UsageLogFilterDropdown({
+  label,
+  values,
+  options,
+  allLabel,
+  open,
+  onOpenChange,
+  onChange,
+}: UsageLogFilterDropdownProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const reduceMotion = useReducedMotion();
+  const isActive = values.length > 0;
+  const display = formatFilterTriggerLabel(label, values);
+
+  const menuTransition = reduceMotion
+    ? { duration: 0.01 }
+    : { duration: 0.16, ease: UI_EASE };
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      onOpenChange(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [open, onOpenChange]);
 
   return (
-    <div className="grid grid-cols-[7.5rem_minmax(0,1fr)_auto] items-center gap-4">
-      <p className="text-body-md text-neutral-950">{label}</p>
-      <div
-        className="h-2.5 overflow-hidden rounded-full bg-neutral-200"
-        role="progressbar"
-        aria-label={label}
-        aria-valuemin={0}
-        aria-valuemax={total}
-        aria-valuenow={used}
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-label={`Filter by ${label.toLowerCase()}`}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => onOpenChange(!open)}
+        className={[
+          "inline-flex h-7 max-w-[9.5rem] items-center gap-1 rounded-md border px-2 text-left text-[11px] leading-4 ui-t-colors",
+          isActive
+            ? "border-violet-300 bg-violet-50 text-violet-800"
+            : "border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-neutral-300 hover:bg-neutral-100",
+          open ? "border-violet-300 ring-2 ring-violet-200/60" : "",
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300",
+        ].join(" ")}
       >
-        <div
-          className="h-full rounded-full bg-violet-500"
-          style={{ width: `${percent}%` }}
+        <span className="min-w-0 truncate">{display}</span>
+        <ChevronDown
+          className={[
+            "h-3 w-3 shrink-0 opacity-70 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+            open ? "rotate-180" : "",
+          ].join(" ")}
+          strokeWidth={1.75}
         />
-      </div>
-      <p className="justify-self-end whitespace-nowrap text-[13px] leading-5 text-neutral-600">
-        {used.toLocaleString("en-US")}
-        {unit === "GB" ? ` ${unit}` : ""} / {total.toLocaleString("en-US")} {unit}
-      </p>
+      </button>
+
+      <AnimatePresence>
+        {open ? (
+          <motion.div
+            key={`usage-filter-${label}`}
+            role="listbox"
+            aria-multiselectable="true"
+            aria-label={`Filter by ${label.toLowerCase()}`}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -2 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -1 }}
+            transition={menuTransition}
+            className="absolute left-0 top-full z-20 mt-1.5 max-h-52 w-max min-w-[11rem] max-w-[14rem] overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50 p-1 shadow-[var(--shadow-popup)]"
+          >
+            <button
+              type="button"
+              role="option"
+              aria-selected={!isActive}
+              onClick={() => onChange([])}
+              className={[
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[11px] leading-4 ui-t-colors",
+                !isActive
+                  ? "bg-neutral-200 text-neutral-950"
+                  : "text-neutral-700 hover:bg-neutral-200/70 hover:text-neutral-950",
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border",
+                  !isActive
+                    ? "border-violet-500 bg-violet-600 text-white"
+                    : "border-neutral-300 bg-[var(--background)]",
+                ].join(" ")}
+                aria-hidden
+              >
+                {!isActive ? <Check className="h-2.5 w-2.5" strokeWidth={2.5} /> : null}
+              </span>
+              <span className="min-w-0 truncate">{allLabel}</span>
+            </button>
+            {options.map((option) => {
+              const isSelected = values.includes(option);
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => onChange(toggleFilterValue(values, option))}
+                  className={[
+                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[11px] leading-4 ui-t-colors",
+                    isSelected
+                      ? "bg-neutral-200/80 text-neutral-950"
+                      : "text-neutral-700 hover:bg-neutral-200/70 hover:text-neutral-950",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border",
+                      isSelected
+                        ? "border-violet-500 bg-violet-600 text-white"
+                        : "border-neutral-300 bg-[var(--background)]",
+                    ].join(" ")}
+                    aria-hidden
+                  >
+                    {isSelected ? (
+                      <Check className="h-2.5 w-2.5" strokeWidth={2.5} />
+                    ) : null}
+                  </span>
+                  <span className="min-w-0 truncate">{option}</span>
+                </button>
+              );
+            })}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
 
+function exportUsageLogs(logs: UsageLogEntry[]) {
+  const header = [
+    "Time",
+    "Requested by",
+    "Model used",
+    "Input tokens",
+    "Output tokens",
+    "Task type",
+  ];
+  const rows = logs.map((entry) => [
+    entry.time,
+    entry.requestedBy,
+    entry.modelUsed,
+    String(entry.inputTokens),
+    String(entry.outputTokens),
+    entry.taskType,
+  ]);
+  const csv = [header, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","),
+    )
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `lexee-usage-logs-${logs.length}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function printUsageLogs(logs: UsageLogEntry[]) {
+  const printWindow = window.open("", "_blank", "noopener,noreferrer,width=960,height=900");
+  if (!printWindow) return;
+  const rows = logs
+    .map(
+      (entry) => `<tr>
+        <td>${entry.time}</td>
+        <td>${entry.requestedBy}</td>
+        <td>${entry.modelUsed}</td>
+        <td>${entry.inputTokens.toLocaleString("en-US")}</td>
+        <td>${entry.outputTokens.toLocaleString("en-US")}</td>
+        <td>${entry.taskType}</td>
+      </tr>`,
+    )
+    .join("");
+  printWindow.document.write(`<!doctype html><html><head><title>Usage logs</title>
+    <style>
+      body { font-family: Georgia, serif; color: #171717; padding: 32px; }
+      h1 { font-size: 22px; margin: 0 0 6px; }
+      .meta { color: #525252; font-size: 13px; margin-bottom: 20px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: 10px 8px 10px 0; border-bottom: 1px solid #e5e5e5; font-size: 12px; vertical-align: top; }
+      th { color: #737373; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+    </style></head><body>
+      <h1>Usage logs</h1>
+      <p class="meta">${logs.length} selected ${logs.length === 1 ? "entry" : "entries"}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Requested by</th>
+            <th>Model used</th>
+            <th>Input tokens</th>
+            <th>Output tokens</th>
+            <th>Task type</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </body></html>`);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
+
 function UsageLogsTable({ logs }: { logs: UsageLogEntry[] }) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [dateFilter, setDateFilter] = useState<string[]>([]);
+  const [userFilter, setUserFilter] = useState<string[]>([]);
+  const [modelFilter, setModelFilter] = useState<string[]>([]);
+  const [openFilter, setOpenFilter] = useState<"date" | "user" | "model" | null>(
+    null,
+  );
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
+  const logIdsKey = logs.map((entry) => entry.id).join(",");
+
+  const dateOptions = useMemo(
+    () => uniqueSorted(logs.map((entry) => getUsageLogDateLabel(entry.time))),
+    [logs],
+  );
+  const userOptions = useMemo(
+    () => uniqueSorted(logs.map((entry) => entry.requestedBy)),
+    [logs],
+  );
+  const modelOptions = useMemo(
+    () => uniqueSorted(logs.map((entry) => entry.modelUsed)),
+    [logs],
+  );
+
+  const filteredLogs = useMemo(
+    () =>
+      logs.filter((entry) => {
+        if (
+          dateFilter.length > 0 &&
+          !dateFilter.includes(getUsageLogDateLabel(entry.time))
+        ) {
+          return false;
+        }
+        if (userFilter.length > 0 && !userFilter.includes(entry.requestedBy)) {
+          return false;
+        }
+        if (modelFilter.length > 0 && !modelFilter.includes(entry.modelUsed)) {
+          return false;
+        }
+        return true;
+      }),
+    [logs, dateFilter, userFilter, modelFilter],
+  );
+
+  const filteredIdsKey = filteredLogs.map((entry) => entry.id).join(",");
+  const filtersActive =
+    dateFilter.length > 0 || userFilter.length > 0 || modelFilter.length > 0;
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setDateFilter([]);
+    setUserFilter([]);
+    setModelFilter([]);
+    setOpenFilter(null);
+  }, [logIdsKey]);
+
+  useEffect(() => {
+    setSelectedIds((previous) => {
+      if (previous.size === 0) return previous;
+      const visible = new Set(filteredIdsKey.split(",").filter(Boolean));
+      const next = new Set([...previous].filter((id) => visible.has(id)));
+      return next.size === previous.size ? previous : next;
+    });
+  }, [filteredIdsKey]);
+
+  const allSelected =
+    filteredLogs.length > 0 && selectedIds.size === filteredLogs.length;
+  const someSelected = selectedIds.size > 0 && !allSelected;
+  const selectedLogs = useMemo(
+    () => filteredLogs.filter((entry) => selectedIds.has(entry.id)),
+    [filteredLogs, selectedIds],
+  );
+
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    selectAllRef.current.indeterminate = someSelected;
+  }, [someSelected]);
+
+  const toggleAll = useCallback(() => {
+    setSelectedIds((previous) => {
+      if (previous.size === filteredLogs.length) return new Set();
+      return new Set(filteredLogs.map((entry) => entry.id));
+    });
+  }, [filteredLogs]);
+
+  const toggleOne = useCallback((id: string) => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setDateFilter([]);
+    setUserFilter([]);
+    setModelFilter([]);
+    setOpenFilter(null);
+  }, []);
+
+  return (
+    <div className="w-full">
+      <div className="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <UsageLogFilterDropdown
+            label="Date"
+            values={dateFilter}
+            options={dateOptions}
+            allLabel="All dates"
+            open={openFilter === "date"}
+            onOpenChange={(next) => setOpenFilter(next ? "date" : null)}
+            onChange={setDateFilter}
+          />
+          <UsageLogFilterDropdown
+            label="User"
+            values={userFilter}
+            options={userOptions}
+            allLabel="All users"
+            open={openFilter === "user"}
+            onOpenChange={(next) => setOpenFilter(next ? "user" : null)}
+            onChange={setUserFilter}
+          />
+          <UsageLogFilterDropdown
+            label="Model"
+            values={modelFilter}
+            options={modelOptions}
+            allLabel="All models"
+            open={openFilter === "model"}
+            onOpenChange={(next) => setOpenFilter(next ? "model" : null)}
+            onChange={setModelFilter}
+          />
+          {filtersActive ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex h-7 items-center rounded-md px-1.5 text-[11px] font-medium leading-4 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          <p
+            className={[
+              "hidden text-[11px] leading-4 sm:block ui-t-colors",
+              selectedIds.size > 0 || filtersActive
+                ? "text-neutral-600"
+                : "text-neutral-400",
+            ].join(" ")}
+            aria-live="polite"
+          >
+            {selectedIds.size > 0
+              ? `${selectedIds.size} selected`
+              : filtersActive
+                ? `${filteredLogs.length}/${logs.length}`
+                : null}
+          </p>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => printUsageLogs(selectedLogs)}
+              disabled={selectedIds.size === 0}
+              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium leading-4 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950 disabled:cursor-not-allowed disabled:text-neutral-400 disabled:hover:bg-transparent disabled:hover:text-neutral-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+            >
+              <Printer className="h-3 w-3" strokeWidth={1.75} />
+              Print
+            </button>
+            <button
+              type="button"
+              onClick={() => exportUsageLogs(selectedLogs)}
+              disabled={selectedIds.size === 0}
+              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium leading-4 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950 disabled:cursor-not-allowed disabled:text-neutral-400 disabled:hover:bg-transparent disabled:hover:text-neutral-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+            >
+              <Download className="h-3 w-3" strokeWidth={1.75} />
+              Export
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="w-full overflow-x-auto">
+        <table className="min-w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-neutral-200">
+              <th className="w-10 whitespace-nowrap py-3 pr-3 text-[12px] font-medium text-neutral-500">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  disabled={filteredLogs.length === 0}
+                  aria-label="Select all visible logs"
+                  className="h-3.5 w-3.5 cursor-pointer rounded border-neutral-300 accent-violet-600 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+                />
+              </th>
+              {[
+                "Time",
+                "Requested by",
+                "Model used",
+                "Input tokens",
+                "Output tokens",
+                "Task type",
+              ].map((heading) => (
+                <th
+                  key={heading}
+                  className="whitespace-nowrap py-3 pr-4 text-[12px] font-medium text-neutral-500 last:pr-0"
+                >
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredLogs.length > 0 ? (
+              filteredLogs.map((entry) => {
+                const isSelected = selectedIds.has(entry.id);
+                return (
+                  <tr
+                    key={entry.id}
+                    className={[
+                      "border-b border-neutral-200 last:border-b-0",
+                      isSelected ? "bg-violet-50/60" : "hover:bg-neutral-100/50",
+                    ].join(" ")}
+                  >
+                    <td className="w-10 whitespace-nowrap py-3.5 pr-3">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleOne(entry.id)}
+                        aria-label={`Select log from ${entry.time}`}
+                        className="h-3.5 w-3.5 cursor-pointer rounded border-neutral-300 accent-violet-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+                      />
+                    </td>
+                    <td className="whitespace-nowrap py-3.5 pr-4 text-[13px] leading-5 text-neutral-800">
+                      {entry.time}
+                    </td>
+                    <td className="whitespace-nowrap py-3.5 pr-4 text-[13px] leading-5 text-neutral-800">
+                      {entry.requestedBy}
+                    </td>
+                    <td className="whitespace-nowrap py-3.5 pr-4 text-[13px] leading-5 text-neutral-800">
+                      {entry.modelUsed}
+                    </td>
+                    <td className="whitespace-nowrap py-3.5 pr-4 text-[13px] leading-5 text-neutral-800">
+                      {entry.inputTokens.toLocaleString("en-US")}
+                    </td>
+                    <td className="whitespace-nowrap py-3.5 pr-4 text-[13px] leading-5 text-neutral-800">
+                      {entry.outputTokens.toLocaleString("en-US")}
+                    </td>
+                    <td className="whitespace-nowrap py-3.5 text-[13px] leading-5 text-neutral-800 last:pr-0">
+                      {entry.taskType}
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td
+                  colSpan={7}
+                  className="py-8 text-center text-[13px] leading-5 text-neutral-500"
+                >
+                  No logs match these filters
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function DocumentProcessingStatusBadge({
+  status,
+}: {
+  status: DocumentProcessingStatus;
+}) {
+  const label = DOCUMENT_PROCESSING_STATUS_LABEL[status];
+  if (status === "completed") {
+    return (
+      <span className="inline-flex items-center rounded-full bg-[#f3e4d4] px-2.5 py-1 text-[12px] leading-4 text-[#5c3d2e]">
+        {label}
+      </span>
+    );
+  }
+  if (status === "processing") {
+    return (
+      <span className="inline-flex items-center rounded-full bg-neutral-200/80 px-2.5 py-1 text-[12px] leading-4 text-neutral-700">
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full border border-[#d4a574] bg-transparent px-2.5 py-1 text-[12px] leading-4 text-[#5c3d2e]">
+      {label}
+    </span>
+  );
+}
+
+function DocumentProcessingTable({ jobs }: { jobs: DocumentProcessingJob[] }) {
   return (
     <div className="w-full overflow-x-auto">
       <table className="min-w-full border-collapse text-left">
         <thead>
           <tr className="border-b border-neutral-200">
-            {[
-              "Time",
-              "Requested by",
-              "Model used",
-              "Input tokens",
-              "Output tokens",
-              "Task type",
-            ].map((heading) => (
-              <th
-                key={heading}
-                className="whitespace-nowrap py-3 pr-4 text-[12px] font-medium text-neutral-500 first:pl-0 last:pr-0"
-              >
-                {heading}
-              </th>
-            ))}
+            <th className="whitespace-nowrap py-3 pr-4 text-[11px] font-medium uppercase tracking-[0.04em] text-neutral-500">
+              Matter
+            </th>
+            <th className="whitespace-nowrap py-3 pr-4 text-right text-[11px] font-medium uppercase tracking-[0.04em] text-neutral-500">
+              Pages
+            </th>
+            <th className="whitespace-nowrap py-3 pr-4 text-center text-[11px] font-medium uppercase tracking-[0.04em] text-neutral-500">
+              Status
+            </th>
+            <th className="whitespace-nowrap py-3 pr-4 text-[11px] font-medium uppercase tracking-[0.04em] text-neutral-500">
+              Submitted
+            </th>
+            <th className="whitespace-nowrap py-3 text-right text-[11px] font-medium uppercase tracking-[0.04em] text-neutral-500 last:pr-0">
+              Cost
+            </th>
           </tr>
         </thead>
         <tbody>
-          {logs.map((entry) => (
-            <tr
-              key={entry.id}
-              className="border-b border-neutral-200 last:border-b-0"
-            >
-              <td className="whitespace-nowrap py-3.5 pr-4 text-[13px] leading-5 text-neutral-800 first:pl-0">
-                {entry.time}
+          {jobs.map((job) => (
+            <tr key={job.id} className="border-b border-neutral-200 last:border-b-0">
+              <td className="whitespace-nowrap py-3.5 pr-4 font-tiempos-text text-[14px] leading-5 text-neutral-900">
+                {job.matter}
               </td>
-              <td className="whitespace-nowrap py-3.5 pr-4 text-[13px] leading-5 text-neutral-800">
-                {entry.requestedBy}
+              <td className="whitespace-nowrap py-3.5 pr-4 text-right font-tiempos-text text-[14px] leading-5 text-neutral-900">
+                {job.pages.toLocaleString("en-US")}
               </td>
-              <td className="whitespace-nowrap py-3.5 pr-4 text-[13px] leading-5 text-neutral-800">
-                {entry.modelUsed}
+              <td className="whitespace-nowrap py-3.5 pr-4 text-center">
+                <DocumentProcessingStatusBadge status={job.status} />
               </td>
-              <td className="whitespace-nowrap py-3.5 pr-4 text-[13px] leading-5 text-neutral-800">
-                {entry.inputTokens.toLocaleString("en-US")}
+              <td className="whitespace-nowrap py-3.5 pr-4 font-tiempos-text text-[14px] leading-5 text-neutral-900">
+                {job.submitted}
               </td>
-              <td className="whitespace-nowrap py-3.5 pr-4 text-[13px] leading-5 text-neutral-800">
-                {entry.outputTokens.toLocaleString("en-US")}
-              </td>
-              <td className="whitespace-nowrap py-3.5 text-[13px] leading-5 text-neutral-800 last:pr-0">
-                {entry.taskType}
+              <td className="whitespace-nowrap py-3.5 text-right font-tiempos-text text-[14px] leading-5 text-neutral-900 last:pr-0">
+                {job.cost == null ? "—" : formatCurrency(job.cost)}
               </td>
             </tr>
           ))}
@@ -697,24 +1270,22 @@ function BuyCreditsDialog({
   );
 }
 
-const BILLING_COUNTRIES = [
-  "United States",
-  "India",
-  "United Kingdom",
-  "Canada",
-  "Australia",
-] as const;
 
 type MonthlyBillLineItem = {
   id: string;
   label: string;
   amount: number;
+  quantity?: number;
+  unitPrice?: number;
 };
 
 type MonthlyBill = {
   id: string;
   monthLabel: string;
   total: number;
+  invoiceNumber: string;
+  dateOfIssue: string;
+  dateDue: string;
   lineItems: MonthlyBillLineItem[];
 };
 
@@ -723,26 +1294,37 @@ const MONTHLY_BILLS: MonthlyBill[] = [
     id: "2026-08",
     monthLabel: "August 2026",
     total: 1240,
+    invoiceNumber: "INV-AUG-2026",
+    dateOfIssue: "August 6, 2026",
+    dateDue: "August 6, 2026",
     lineItems: [
       {
         id: "aug-opus",
         label: "Claude Opus 4 (Research & Analysis)",
         amount: 620,
+        quantity: 1,
+        unitPrice: 620,
       },
       {
         id: "aug-sonnet",
         label: "Claude Sonnet 4 (Research & Analysis)",
         amount: 280,
+        quantity: 1,
+        unitPrice: 280,
       },
       {
         id: "aug-mini",
         label: "GPT-4o mini (Quick Tasks)",
         amount: 210,
+        quantity: 1,
+        unitPrice: 210,
       },
       {
         id: "aug-haiku",
         label: "Claude Haiku (Quick Tasks)",
         amount: 130,
+        quantity: 1,
+        unitPrice: 130,
       },
     ],
   },
@@ -750,6 +1332,9 @@ const MONTHLY_BILLS: MonthlyBill[] = [
     id: "2026-07",
     monthLabel: "July 2026",
     total: 1198.5,
+    invoiceNumber: "INV-JUL-2026",
+    dateOfIssue: "July 6, 2026",
+    dateDue: "July 6, 2026",
     lineItems: [
       {
         id: "jul-opus",
@@ -777,6 +1362,9 @@ const MONTHLY_BILLS: MonthlyBill[] = [
     id: "2026-06",
     monthLabel: "June 2026",
     total: 900,
+    invoiceNumber: "INV-JUN-2026",
+    dateOfIssue: "June 6, 2026",
+    dateDue: "June 6, 2026",
     lineItems: [
       {
         id: "jun-opus",
@@ -804,6 +1392,9 @@ const MONTHLY_BILLS: MonthlyBill[] = [
     id: "2026-05",
     monthLabel: "May 2026",
     total: 1084,
+    invoiceNumber: "INV-MAY-2026",
+    dateOfIssue: "May 6, 2026",
+    dateDue: "May 6, 2026",
     lineItems: [
       {
         id: "may-opus",
@@ -831,6 +1422,9 @@ const MONTHLY_BILLS: MonthlyBill[] = [
     id: "2026-04",
     monthLabel: "April 2026",
     total: 976.25,
+    invoiceNumber: "INV-APR-2026",
+    dateOfIssue: "April 6, 2026",
+    dateDue: "April 6, 2026",
     lineItems: [
       {
         id: "apr-opus",
@@ -858,6 +1452,9 @@ const MONTHLY_BILLS: MonthlyBill[] = [
     id: "2026-03",
     monthLabel: "March 2026",
     total: 842,
+    invoiceNumber: "INV-MAR-2026",
+    dateOfIssue: "March 6, 2026",
+    dateDue: "March 6, 2026",
     lineItems: [
       {
         id: "mar-opus",
@@ -885,12 +1482,25 @@ const MONTHLY_BILLS: MonthlyBill[] = [
 
 const MONTHLY_BILLS_PREVIEW_COUNT = 3;
 
+const INVOICE_PROVIDER = {
+  name: "Lexee",
+  address: "Lexee Address",
+  email: "billing@lexee.com",
+} as const;
+
+const INVOICE_PARTY = {
+  name: "As Wel As Law",
+  address: "Address",
+  email: "murdock@aswelaslaw.com",
+} as const;
+
 type InvoiceStatus = "Paid" | "Pending";
 
 type InvoiceRecord = {
   id: string;
   invoiceNumber: string;
   dateLabel: string;
+  dateDue?: string;
   total: number;
   status: InvoiceStatus;
   periodLabel: string;
@@ -899,202 +1509,126 @@ type InvoiceRecord = {
   paymentMethod: string;
 };
 
-const INVOICES: InvoiceRecord[] = [
-  {
-    id: "inv-2026-08",
-    invoiceNumber: "INV-2026-08",
-    dateLabel: "Aug 20, 2026",
-    total: 1240,
+function lineItemQuantity(item: MonthlyBillLineItem) {
+  return item.quantity ?? 1;
+}
+
+function lineItemUnitPrice(item: MonthlyBillLineItem) {
+  return item.unitPrice ?? item.amount;
+}
+
+function monthlyBillToInvoice(bill: MonthlyBill): InvoiceRecord {
+  return {
+    id: `inv-${bill.id}`,
+    invoiceNumber: bill.invoiceNumber,
+    dateLabel: bill.dateOfIssue,
+    dateDue: bill.dateDue,
+    total: bill.total,
     status: "Paid",
-    periodLabel: "August 2026",
-    billedTo: "As Wel As Law · Matt Murdock",
+    periodLabel: bill.monthLabel,
+    billedTo: INVOICE_PARTY.name,
     paymentMethod: "Visa •••• 4471",
-    lineItems: [
-      {
-        id: "inv-aug-opus",
-        label: "Claude Opus 4 (Research & Analysis)",
-        amount: 620,
-      },
-      {
-        id: "inv-aug-sonnet",
-        label: "Claude Sonnet 4 (Research & Analysis)",
-        amount: 280,
-      },
-      {
-        id: "inv-aug-mini",
-        label: "GPT-4o mini (Quick Tasks)",
-        amount: 210,
-      },
-      {
-        id: "inv-aug-haiku",
-        label: "Claude Haiku (Quick Tasks)",
-        amount: 130,
-      },
-    ],
-  },
+    lineItems: bill.lineItems,
+  };
+}
+
+type PurchaseHistoryEntry = {
+  id: string;
+  dateLabel: string;
+  total: number;
+  status: InvoiceStatus;
+  receiptNumber: string;
+  paymentMethod: string;
+  lineItems: MonthlyBillLineItem[];
+};
+
+const PURCHASE_HISTORY: PurchaseHistoryEntry[] = [
   {
-    id: "inv-2026-07",
-    invoiceNumber: "INV-2026-07",
+    id: "purchase-2026-07",
     dateLabel: "Jul 20, 2026",
-    total: 1198.5,
-    status: "Paid",
-    periodLabel: "July 2026",
-    billedTo: "As Wel As Law · Matt Murdock",
-    paymentMethod: "Visa •••• 4471",
-    lineItems: [
-      {
-        id: "inv-jul-opus",
-        label: "Claude Opus 4 (Research & Analysis)",
-        amount: 540,
-      },
-      {
-        id: "inv-jul-gpt4o",
-        label: "GPT-4o (Research & Analysis)",
-        amount: 318.5,
-      },
-      {
-        id: "inv-jul-mini",
-        label: "GPT-4o mini (Quick Tasks)",
-        amount: 210,
-      },
-      {
-        id: "inv-jul-haiku",
-        label: "Claude Haiku (Quick Tasks)",
-        amount: 130,
-      },
-    ],
-  },
-  {
-    id: "inv-2026-06",
-    invoiceNumber: "INV-2026-06",
-    dateLabel: "Jun 20, 2026",
     total: 900,
     status: "Paid",
-    periodLabel: "June 2026",
-    billedTo: "As Wel As Law · Matt Murdock",
+    receiptNumber: "RCP-JUL-2026",
     paymentMethod: "Visa •••• 4471",
     lineItems: [
       {
-        id: "inv-jun-opus",
-        label: "Claude Opus 4 (Research & Analysis)",
-        amount: 410,
+        id: "ph-jul-credits",
+        label: "AI credits top-up",
+        amount: 500,
       },
       {
-        id: "inv-jun-sonnet",
-        label: "Claude Sonnet 4 (Research & Analysis)",
-        amount: 260,
-      },
-      {
-        id: "inv-jun-mini",
-        label: "GPT-4o mini (Quick Tasks)",
-        amount: 140,
-      },
-      {
-        id: "inv-jun-haiku",
-        label: "Claude Haiku (Quick Tasks)",
-        amount: 90,
+        id: "ph-jul-seats",
+        label: "Additional seat · July",
+        amount: 400,
       },
     ],
   },
   {
-    id: "inv-2026-05",
-    invoiceNumber: "INV-2026-05",
+    id: "purchase-2026-06",
+    dateLabel: "Jun 20, 2026",
+    total: 340,
+    status: "Paid",
+    receiptNumber: "RCP-JUN-2026",
+    paymentMethod: "Visa •••• 4471",
+    lineItems: [
+      {
+        id: "ph-jun-credits",
+        label: "AI credits top-up",
+        amount: 340,
+      },
+    ],
+  },
+  {
+    id: "purchase-2026-05",
     dateLabel: "May 20, 2026",
-    total: 1084,
+    total: 298.5,
     status: "Paid",
-    periodLabel: "May 2026",
-    billedTo: "As Wel As Law · Matt Murdock",
+    receiptNumber: "RCP-MAY-2026",
     paymentMethod: "Visa •••• 4471",
     lineItems: [
       {
-        id: "inv-may-opus",
-        label: "Claude Opus 4 (Research & Analysis)",
-        amount: 490,
+        id: "ph-may-credits",
+        label: "AI credits top-up",
+        amount: 198.5,
       },
       {
-        id: "inv-may-sonnet",
-        label: "Claude Sonnet 4 (Research & Analysis)",
-        amount: 304,
-      },
-      {
-        id: "inv-may-mini",
-        label: "GPT-4o mini (Quick Tasks)",
-        amount: 180,
-      },
-      {
-        id: "inv-may-haiku",
-        label: "Claude Haiku (Quick Tasks)",
-        amount: 110,
+        id: "ph-may-storage",
+        label: "Storage add-on",
+        amount: 100,
       },
     ],
   },
   {
-    id: "inv-2026-04",
-    invoiceNumber: "INV-2026-04",
+    id: "purchase-2026-04",
     dateLabel: "Apr 20, 2026",
-    total: 976.25,
+    total: 420,
     status: "Paid",
-    periodLabel: "April 2026",
-    billedTo: "As Wel As Law · Matt Murdock",
+    receiptNumber: "RCP-APR-2026",
     paymentMethod: "Visa •••• 4471",
     lineItems: [
       {
-        id: "inv-apr-opus",
-        label: "Claude Opus 4 (Research & Analysis)",
-        amount: 440,
-      },
-      {
-        id: "inv-apr-gpt4o",
-        label: "GPT-4o (Research & Analysis)",
-        amount: 286.25,
-      },
-      {
-        id: "inv-apr-mini",
-        label: "GPT-4o mini (Quick Tasks)",
-        amount: 160,
-      },
-      {
-        id: "inv-apr-haiku",
-        label: "Claude Haiku (Quick Tasks)",
-        amount: 90,
-      },
-    ],
-  },
-  {
-    id: "inv-2026-03",
-    invoiceNumber: "INV-2026-03",
-    dateLabel: "Mar 20, 2026",
-    total: 842,
-    status: "Paid",
-    periodLabel: "March 2026",
-    billedTo: "As Wel As Law · Matt Murdock",
-    paymentMethod: "Visa •••• 4471",
-    lineItems: [
-      {
-        id: "inv-mar-opus",
-        label: "Claude Opus 4 (Research & Analysis)",
-        amount: 380,
-      },
-      {
-        id: "inv-mar-sonnet",
-        label: "Claude Sonnet 4 (Research & Analysis)",
-        amount: 242,
-      },
-      {
-        id: "inv-mar-mini",
-        label: "GPT-4o mini (Quick Tasks)",
-        amount: 140,
-      },
-      {
-        id: "inv-mar-haiku",
-        label: "Claude Haiku (Quick Tasks)",
-        amount: 80,
+        id: "ph-apr-credits",
+        label: "AI credits top-up",
+        amount: 420,
       },
     ],
   },
 ];
 
-const INVOICES_PREVIEW_COUNT = 3;
+function purchaseToInvoice(entry: PurchaseHistoryEntry): InvoiceRecord {
+  return {
+    id: entry.id,
+    invoiceNumber: entry.receiptNumber,
+    dateLabel: entry.dateLabel,
+    dateDue: entry.dateLabel,
+    total: entry.total,
+    status: entry.status,
+    periodLabel: entry.dateLabel,
+    billedTo: INVOICE_PARTY.name,
+    paymentMethod: entry.paymentMethod,
+    lineItems: entry.lineItems,
+  };
+}
 
 const USER_LIMIT_MIN = 30;
 const USER_LIMIT_MAX = 5000;
@@ -1127,100 +1661,48 @@ function formatCreditsFromUsd(amount: number) {
 
 type MonthlyBillsListProps = {
   bills: MonthlyBill[];
-  expandedId: string | null;
-  onExpandedChange: (id: string | null) => void;
-  reduceMotion: boolean | null;
-  transition: { duration: number; ease?: readonly [number, number, number, number] };
+  onView: (bill: MonthlyBill) => void;
 };
 
-function MonthlyBillsList({
-  bills,
-  expandedId,
-  onExpandedChange,
-  reduceMotion,
-  transition,
-}: MonthlyBillsListProps) {
+function MonthlyBillsList({ bills, onView }: MonthlyBillsListProps) {
   return (
     <div className="w-full">
-      {bills.map((bill, index) => {
-        const isExpanded = expandedId === bill.id;
-        return (
-          <div
-            key={bill.id}
-            className={
-              index < bills.length - 1 ? "border-b border-neutral-200" : ""
-            }
-          >
-            <button
-              type="button"
-              aria-expanded={isExpanded}
-              onClick={() =>
-                onExpandedChange(expandedId === bill.id ? null : bill.id)
-              }
-              className="flex w-full items-center justify-between gap-4 py-3.5 text-left ui-t-colors hover:bg-neutral-100/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-            >
-              <span className="text-body-md font-medium text-neutral-950">
-                {bill.monthLabel}
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="text-body-md text-neutral-950">
-                  {formatCurrency(bill.total)}
-                </span>
-                <ChevronDown
-                  className={[
-                    "h-4 w-4 shrink-0 text-neutral-500 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
-                    isExpanded ? "rotate-180" : "",
-                  ].join(" ")}
-                  strokeWidth={1.75}
-                />
-              </span>
-            </button>
-
-            <AnimatePresence initial={false}>
-              {isExpanded ? (
-                <motion.div
-                  key={`${bill.id}-details`}
-                  initial={
-                    reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }
-                  }
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={
-                    reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }
-                  }
-                  transition={transition}
-                  className="overflow-hidden"
-                >
-                  <div className="space-y-2.5 pb-4 pl-3">
-                    {bill.lineItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-start justify-between gap-4"
-                      >
-                        <p className="min-w-0 text-[13px] leading-5 text-neutral-600">
-                          {item.label}
-                        </p>
-                        <p className="shrink-0 text-[13px] leading-5 text-neutral-600">
-                          {formatCurrency(item.amount)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
+      {bills.map((bill, index) => (
+        <div
+          key={bill.id}
+          className={[
+            "flex items-center justify-between gap-4 py-3.5",
+            index < bills.length - 1 ? "border-b border-neutral-200" : "",
+          ].join(" ")}
+        >
+          <div className="min-w-0">
+            <p className="text-body-md font-medium text-neutral-950">
+              {bill.monthLabel}
+            </p>
+            <p className="mt-0.5 text-[13px] leading-5 text-neutral-600">
+              {formatCurrency(bill.total)}
+            </p>
           </div>
-        );
-      })}
+          <button
+            type="button"
+            onClick={() => onView(bill)}
+            className="inline-flex shrink-0 items-center rounded-md px-2 py-1 text-[13px] font-medium leading-5 text-neutral-800 ui-t-colors hover:bg-neutral-200 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+          >
+            View
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
 
-type InvoicesTableProps = {
-  invoices: InvoiceRecord[];
-  onView: (invoice: InvoiceRecord) => void;
-};
-
-function InvoicesTable({ invoices, onView }: InvoicesTableProps) {
+function PurchaseHistoryTable({
+  purchases,
+  onView,
+}: {
+  purchases: PurchaseHistoryEntry[];
+  onView: (purchase: PurchaseHistoryEntry) => void;
+}) {
   return (
     <div className="w-full overflow-x-auto">
       <table className="min-w-full border-collapse text-left">
@@ -1230,7 +1712,7 @@ function InvoicesTable({ invoices, onView }: InvoicesTableProps) {
               <th
                 key={heading}
                 className={[
-                  "whitespace-nowrap py-3 pr-4 text-[12px] font-medium text-neutral-500 first:pl-0 last:pr-0",
+                  "whitespace-nowrap py-3 pr-4 text-[12px] font-medium text-neutral-500 last:pr-0",
                   heading === "Action" ? "text-right" : "",
                 ].join(" ")}
               >
@@ -1240,37 +1722,29 @@ function InvoicesTable({ invoices, onView }: InvoicesTableProps) {
           </tr>
         </thead>
         <tbody>
-          {invoices.map((invoice) => (
+          {purchases.map((purchase) => (
             <tr
-              key={invoice.id}
+              key={purchase.id}
               className="border-b border-neutral-200 last:border-b-0"
             >
               <td className="whitespace-nowrap py-3.5 pr-4 text-[13px] leading-5 text-neutral-800">
-                {invoice.dateLabel}
+                {purchase.dateLabel}
               </td>
               <td className="whitespace-nowrap py-3.5 pr-4 text-[13px] leading-5 text-neutral-800">
-                {formatCurrency(invoice.total)}
+                {formatCurrency(purchase.total)}
               </td>
               <td className="whitespace-nowrap py-3.5 pr-4">
-                <span
-                  className={[
-                    "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium leading-4",
-                    invoice.status === "Paid"
-                      ? "bg-neutral-100 text-neutral-700"
-                      : "bg-neutral-100 text-neutral-600",
-                  ].join(" ")}
-                >
-                  {invoice.status}
+                <span className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium leading-4 text-neutral-700">
+                  {purchase.status}
                 </span>
               </td>
               <td className="whitespace-nowrap py-3.5 text-right last:pr-0">
                 <button
                   type="button"
-                  onClick={() => onView(invoice)}
-                  className="inline-flex items-center gap-1 text-[13px] font-medium leading-5 text-neutral-800 ui-t-colors hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+                  onClick={() => onView(purchase)}
+                  className="inline-flex items-center rounded-md px-2 py-1 text-[13px] font-medium leading-5 text-neutral-800 ui-t-colors hover:bg-neutral-200 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
                 >
                   View
-                  <ChevronRight className="h-4 w-4 text-neutral-400" strokeWidth={1.75} />
                 </button>
               </td>
             </tr>
@@ -1281,16 +1755,32 @@ function InvoicesTable({ invoices, onView }: InvoicesTableProps) {
   );
 }
 
+type BillingDocumentKind = "invoice" | "receipt";
+
 type InvoiceDetailDialogProps = {
   invoice: InvoiceRecord | null;
   open: boolean;
+  documentKind?: BillingDocumentKind;
   onClose: () => void;
 };
 
-function InvoiceDetailDialog({ invoice, open, onClose }: InvoiceDetailDialogProps) {
+function InvoiceDetailDialog({
+  invoice,
+  open,
+  documentKind = "invoice",
+  onClose,
+}: InvoiceDetailDialogProps) {
   const titleId = useId();
-  const printRef = useRef<HTMLDivElement | null>(null);
   const reduceMotion = useReducedMotion();
+  const dueDate = invoice?.dateDue ?? invoice?.dateLabel ?? "";
+  const isReceipt = documentKind === "receipt";
+  const documentTitle = isReceipt ? "Receipt" : "Invoice";
+  const numberLabel = isReceipt ? "Receipt number" : "Invoice number";
+  const dateLabel = isReceipt ? "Date of purchase" : "Date of issue";
+  const amountSummary = isReceipt
+    ? `${formatCurrency(invoice?.total ?? 0)} USD paid ${invoice?.dateLabel ?? ""}`
+    : `${formatCurrency(invoice?.total ?? 0)} USD due ${dueDate}`;
+  const amountDueLabel = isReceipt ? "Amount paid" : "Amount due";
 
   const overlayTransition = reduceMotion
     ? { duration: 0.01 }
@@ -1300,44 +1790,92 @@ function InvoiceDetailDialog({ invoice, open, onClose }: InvoiceDetailDialogProp
     ? { duration: 0.01 }
     : { duration: 0.22, ease: UI_EASE };
 
-  const handlePrint = () => {
-    if (!invoice || !printRef.current) return;
-    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=840,height=900");
-    if (!printWindow) return;
-    printWindow.document.write(`<!doctype html><html><head><title>${invoice.invoiceNumber}</title>
-      <style>
-        body { font-family: Georgia, serif; color: #171717; padding: 32px; }
-        h1 { font-size: 24px; margin: 0 0 8px; }
-        .meta { color: #525252; font-size: 13px; margin-bottom: 24px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        th, td { text-align: left; padding: 10px 0; border-bottom: 1px solid #e5e5e5; font-size: 13px; }
-        th { color: #737373; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-        .total { font-weight: 600; font-size: 16px; }
-      </style></head><body>${printRef.current.innerHTML}</body></html>`);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-  };
-
-  const handleExport = () => {
+  const handleDownload = () => {
     if (!invoice) return;
-    const lines = [
-      `Invoice,${invoice.invoiceNumber}`,
-      `Date,${invoice.dateLabel}`,
-      `Period,${invoice.periodLabel}`,
-      `Billed To,${invoice.billedTo}`,
-      `Payment Method,${invoice.paymentMethod}`,
-      `Status,${invoice.status}`,
-      "",
-      "Item,Amount",
-      ...invoice.lineItems.map((item) => `"${item.label}",${item.amount.toFixed(2)}`),
-      `Total,${invoice.total.toFixed(2)}`,
-    ];
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const due = invoice.dateDue ?? invoice.dateLabel;
+    const rows = invoice.lineItems
+      .map(
+        (item) => `<tr>
+          <td>${item.label}</td>
+          <td class="num">${lineItemQuantity(item)}</td>
+          <td class="num">${formatCurrency(lineItemUnitPrice(item))}</td>
+          <td class="num">${formatCurrency(item.amount)}</td>
+        </tr>`,
+      )
+      .join("");
+    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${invoice.invoiceNumber}</title>
+      <style>
+        body { font-family: Georgia, "Times New Roman", serif; color: #171717; padding: 40px; max-width: 760px; margin: 0 auto; }
+        h1 { font-size: 28px; margin: 0 0 20px; font-weight: 600; }
+        .meta { display: grid; grid-template-columns: 140px 1fr; gap: 6px 16px; font-size: 13px; margin: 0 0 28px; }
+        .meta dt { color: #525252; } .meta dd { margin: 0; }
+        .parties { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 28px; font-size: 13px; }
+        .parties strong { display: block; margin-bottom: 8px; }
+        .parties p { margin: 0 0 4px; color: #404040; }
+        .due { font-size: 20px; font-weight: 700; margin: 0 0 28px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #737373; padding: 0 8px 10px 0; border-bottom: 1px solid #e5e5e5; }
+        th.num, td.num { text-align: right; }
+        td { padding: 12px 8px 12px 0; border-bottom: 1px solid #e5e5e5; font-size: 13px; vertical-align: top; }
+        .totals { margin-top: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; font-size: 13px; }
+        .totals .amount-due { font-weight: 700; font-size: 14px; }
+      </style></head><body>
+        <p style="margin:0 0 16px;font-size:14px;font-weight:600;">Lexee</p>
+        <h1>${documentTitle}</h1>
+        <dl class="meta">
+          <dt>${numberLabel}</dt><dd>${invoice.invoiceNumber}</dd>
+          <dt>${dateLabel}</dt><dd>${invoice.dateLabel}</dd>
+          ${
+            isReceipt
+              ? ""
+              : `<dt>Date due</dt><dd>${due}</dd>`
+          }
+          <dt>Payment method</dt><dd>${invoice.paymentMethod}</dd>
+        </dl>
+        <div class="parties">
+          <div>
+            <strong>${INVOICE_PROVIDER.name}</strong>
+            <p>${INVOICE_PROVIDER.address}</p>
+            <p>${INVOICE_PROVIDER.email}</p>
+          </div>
+          <div>
+            <strong>Bill to</strong>
+            <p>${INVOICE_PARTY.name}</p>
+            <p>${INVOICE_PARTY.address}</p>
+            <p>${INVOICE_PARTY.email}</p>
+          </div>
+          <div>
+            <strong>Ship to</strong>
+            <p>${INVOICE_PARTY.name}</p>
+            <p>${INVOICE_PARTY.address}</p>
+          </div>
+        </div>
+        <p class="due">${
+          isReceipt
+            ? `${formatCurrency(invoice.total)} USD paid ${invoice.dateLabel}`
+            : `${formatCurrency(invoice.total)} USD due ${due}`
+        }</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th class="num">Qty</th>
+              <th class="num">Unit price</th>
+              <th class="num">Amount</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="totals">
+          <div>Total &nbsp;&nbsp; ${formatCurrency(invoice.total)}</div>
+          <div class="amount-due">${amountDueLabel} &nbsp;&nbsp; ${formatCurrency(invoice.total)} USD</div>
+        </div>
+      </body></html>`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${invoice.invoiceNumber}.csv`;
+    link.download = `${invoice.invoiceNumber}.html`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1349,7 +1887,7 @@ function InvoiceDetailDialog({ invoice, open, onClose }: InvoiceDetailDialogProp
       {open && invoice ? (
         <motion.div
           key="invoice-detail-dialog"
-          className="absolute inset-0 z-[60] flex items-center justify-center px-4 py-6"
+          className="absolute inset-0 z-[80] flex items-center justify-center px-4 py-5"
           role="presentation"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -1365,7 +1903,7 @@ function InvoiceDetailDialog({ invoice, open, onClose }: InvoiceDetailDialogProp
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className="relative z-10 flex max-h-[min(86vh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-neutral-300 bg-[var(--background)] shadow-[var(--shadow-panel)]"
+            className="relative z-10 flex max-h-[min(78vh,560px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-neutral-300 bg-[var(--background)] shadow-[var(--shadow-panel)]"
             initial={
               reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }
             }
@@ -1376,94 +1914,134 @@ function InvoiceDetailDialog({ invoice, open, onClose }: InvoiceDetailDialogProp
             transition={panelTransition}
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-neutral-200 px-5 py-4">
-              <div className="min-w-0">
-                <h3
-                  id={titleId}
-                  className="font-tiempos-headline text-[20px] leading-none tracking-[-0.015em] text-neutral-950"
-                >
-                  Invoice
-                </h3>
-                <p className="mt-2 text-[12px] leading-4 text-neutral-500">
-                  {invoice.invoiceNumber}
-                </p>
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-200 px-4 py-2.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <img
+                  src="/lexee-symbol.svg"
+                  alt=""
+                  width={18}
+                  height={18}
+                  className="h-[18px] w-[18px] shrink-0"
+                />
+                <span className="truncate font-tiempos-text text-[14px] font-medium leading-none tracking-[-0.01em] text-neutral-950">
+                  Lexee
+                </span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={handlePrint}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium leading-4 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+                  onClick={handleDownload}
+                  className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium leading-4 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
                 >
-                  <Printer className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  Print
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExport}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium leading-4 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-                >
-                  <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  Export
+                  <Download className="h-3 w-3" strokeWidth={1.75} />
+                  Download
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-200 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-                  aria-label="Close invoice"
+                  className="inline-flex h-7 items-center rounded-md px-2 text-[11px] font-medium leading-4 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
                 >
-                  <X className="h-4 w-4" strokeWidth={1.75} />
+                  Close
                 </button>
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-              <div ref={printRef}>
-                <h1 className="font-tiempos-text text-[24px] leading-none tracking-[-0.015em] text-neutral-950">
-                  {invoice.invoiceNumber}
-                </h1>
-                <div className="meta mt-3 space-y-1 text-[13px] leading-5 text-neutral-600">
-                  <p>Date: {invoice.dateLabel}</p>
-                  <p>Billing period: {invoice.periodLabel}</p>
-                  <p>Billed to: {invoice.billedTo}</p>
-                  <p>Payment method: {invoice.paymentMethod}</p>
-                  <p>
-                    Status:{" "}
-                    <span className="font-medium text-violet-700">{invoice.status}</span>
-                  </p>
-                </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              <h1
+                id={titleId}
+                className="font-tiempos-text text-[22px] leading-none tracking-[-0.015em] text-neutral-950"
+              >
+                {documentTitle}
+              </h1>
 
-                <table className="mt-6 w-full border-collapse text-left">
-                  <thead>
-                    <tr className="border-b border-neutral-200">
-                      <th className="pb-2 text-[11px] font-medium uppercase tracking-[0.04em] text-neutral-500">
-                        Item
-                      </th>
-                      <th className="pb-2 text-right text-[11px] font-medium uppercase tracking-[0.04em] text-neutral-500">
-                        Amount
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoice.lineItems.map((item) => (
-                      <tr key={item.id} className="border-b border-neutral-200">
-                        <td className="py-2.5 text-[13px] leading-5 text-neutral-800">
-                          {item.label}
-                        </td>
-                        <td className="py-2.5 text-right text-[13px] leading-5 text-neutral-800">
-                          {formatCurrency(item.amount)}
-                        </td>
-                      </tr>
-                    ))}
-                    <tr>
-                      <td className="total pt-3 text-[15px] font-medium text-neutral-950">
-                        Total
+              <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-tiempos-text text-[12px] leading-4">
+                <dt className="text-neutral-500">{numberLabel}</dt>
+                <dd className="text-neutral-950">{invoice.invoiceNumber}</dd>
+                <dt className="text-neutral-500">{dateLabel}</dt>
+                <dd className="text-neutral-950">{invoice.dateLabel}</dd>
+                {!isReceipt ? (
+                  <>
+                    <dt className="text-neutral-500">Date due</dt>
+                    <dd className="text-neutral-950">{dueDate}</dd>
+                  </>
+                ) : null}
+                <dt className="text-neutral-500">Payment method</dt>
+                <dd className="text-neutral-950">{invoice.paymentMethod}</dd>
+              </dl>
+
+              <div className="mt-5 grid grid-cols-3 gap-3">
+                <div className="font-tiempos-text text-[11px] leading-4">
+                  <p className="font-medium text-neutral-950">{INVOICE_PROVIDER.name}</p>
+                  <p className="mt-1 text-neutral-600">{INVOICE_PROVIDER.address}</p>
+                  <p className="text-neutral-600">{INVOICE_PROVIDER.email}</p>
+                </div>
+                <div className="font-tiempos-text text-[11px] leading-4">
+                  <p className="font-medium text-neutral-950">Bill to</p>
+                  <p className="mt-1 text-neutral-600">{INVOICE_PARTY.name}</p>
+                  <p className="text-neutral-600">{INVOICE_PARTY.address}</p>
+                  <p className="text-neutral-600">{INVOICE_PARTY.email}</p>
+                </div>
+                <div className="font-tiempos-text text-[11px] leading-4">
+                  <p className="font-medium text-neutral-950">Ship to</p>
+                  <p className="mt-1 text-neutral-600">{INVOICE_PARTY.name}</p>
+                  <p className="text-neutral-600">{INVOICE_PARTY.address}</p>
+                </div>
+              </div>
+
+              <p className="mt-5 font-tiempos-text text-[15px] font-semibold leading-6 tracking-[-0.01em] text-neutral-950">
+                {amountSummary}
+              </p>
+
+              <table className="mt-4 w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-neutral-200">
+                    <th className="pb-2 pr-2 text-[10px] font-medium uppercase tracking-[0.04em] text-neutral-500">
+                      Description
+                    </th>
+                    <th className="pb-2 pr-2 text-right text-[10px] font-medium uppercase tracking-[0.04em] text-neutral-500">
+                      Qty
+                    </th>
+                    <th className="pb-2 pr-2 text-right text-[10px] font-medium uppercase tracking-[0.04em] text-neutral-500">
+                      Unit price
+                    </th>
+                    <th className="pb-2 text-right text-[10px] font-medium uppercase tracking-[0.04em] text-neutral-500">
+                      Amount
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoice.lineItems.map((item) => (
+                    <tr key={item.id} className="border-b border-neutral-200">
+                      <td className="py-2 pr-2 font-tiempos-text text-[11px] leading-4 text-neutral-900">
+                        {item.label}
                       </td>
-                      <td className="total pt-3 text-right text-[15px] font-medium text-neutral-950">
-                        {formatCurrency(invoice.total)}
+                      <td className="py-2 pr-2 text-right font-tiempos-text text-[11px] leading-4 text-neutral-900">
+                        {lineItemQuantity(item)}
+                      </td>
+                      <td className="py-2 pr-2 text-right font-tiempos-text text-[11px] leading-4 text-neutral-900">
+                        {formatCurrency(lineItemUnitPrice(item))}
+                      </td>
+                      <td className="py-2 text-right font-tiempos-text text-[11px] leading-4 text-neutral-900">
+                        {formatCurrency(item.amount)}
                       </td>
                     </tr>
-                  </tbody>
-                </table>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="mt-4 flex flex-col items-end gap-1.5 font-tiempos-text text-[12px] leading-4">
+                <div className="flex items-baseline gap-6">
+                  <span className="text-neutral-600">Total</span>
+                  <span className="min-w-[5.5rem] text-right text-neutral-950">
+                    {formatCurrency(invoice.total)}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-6 font-semibold text-neutral-950">
+                  <span>{amountDueLabel}</span>
+                  <span className="min-w-[5.5rem] text-right">
+                    {formatCurrency(invoice.total)} USD
+                  </span>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -1699,227 +2277,6 @@ function UsersTable({ users, onSetLimit }: UsersTableProps) {
   );
 }
 
-type UpdateCardDialogProps = {
-  open: boolean;
-  onClose: () => void;
-  onContinue: () => void;
-};
-
-function UpdateCardDialog({ open, onClose, onContinue }: UpdateCardDialogProps) {
-  const titleId = useId();
-  const cardNumberRef = useRef<HTMLInputElement | null>(null);
-  const reduceMotion = useReducedMotion();
-  const [cardNumber, setCardNumber] = useState("");
-  const [expiryDate, setExpiryDate] = useState("");
-  const [securityCode, setSecurityCode] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [country, setCountry] = useState<(typeof BILLING_COUNTRIES)[number]>("United States");
-  const [address, setAddress] = useState("");
-
-  const canContinue =
-    cardNumber.trim().length >= 12 &&
-    expiryDate.trim().length >= 4 &&
-    securityCode.trim().length >= 3 &&
-    fullName.trim().length > 0 &&
-    address.trim().length > 0;
-
-  const overlayTransition = reduceMotion
-    ? { duration: 0.01 }
-    : { duration: 0.18, ease: UI_EASE };
-
-  const panelTransition = reduceMotion
-    ? { duration: 0.01 }
-    : { duration: 0.22, ease: UI_EASE };
-
-  useEffect(() => {
-    if (!open) {
-      setCardNumber("");
-      setExpiryDate("");
-      setSecurityCode("");
-      setFullName("");
-      setCountry("United States");
-      setAddress("");
-      return;
-    }
-    const frame = window.requestAnimationFrame(() => {
-      cardNumberRef.current?.focus();
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [open]);
-
-  const fieldClass =
-    "w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-body-md text-neutral-950 placeholder:text-neutral-500 focus:border-violet-300/80 focus:outline-none focus:ring-2 focus:ring-violet-200/60";
-
-  return (
-    <AnimatePresence>
-      {open ? (
-        <motion.div
-          key="update-card-dialog"
-          className="absolute inset-0 z-[60] flex items-center justify-center px-4 py-6"
-          role="presentation"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={overlayTransition}
-        >
-          <div
-            className="absolute inset-0 bg-black/35 backdrop-blur-[1px]"
-            aria-hidden
-            onMouseDown={onClose}
-          />
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            className="relative z-10 flex max-h-[min(86vh,640px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-neutral-300 bg-[var(--background)] shadow-[var(--shadow-panel)]"
-            initial={
-              reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }
-            }
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={
-              reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4, scale: 0.99 }
-            }
-            transition={panelTransition}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex shrink-0 items-start justify-between gap-3 px-5 pb-1 pt-5">
-              <h3
-                id={titleId}
-                className="font-tiempos-headline text-[20px] leading-none tracking-[-0.015em] text-neutral-950"
-              >
-                Add payment method
-              </h3>
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-200 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-3">
-              <p className="mb-4 inline-flex items-center gap-1.5 text-[12px] leading-4 text-neutral-600">
-                <Lock className="h-3.5 w-3.5 shrink-0 text-violet-600" strokeWidth={1.75} />
-                Secure, fast checkout
-              </p>
-
-              <div className="relative">
-                <input
-                  ref={cardNumberRef}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="cc-number"
-                  value={cardNumber}
-                  onChange={(event) => setCardNumber(event.target.value)}
-                  placeholder="Card number"
-                  className={fieldClass}
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center gap-1 text-[10px] font-medium tracking-wide text-neutral-400">
-                  <span>VISA</span>
-                  <span>MC</span>
-                  <span>AMEX</span>
-                </span>
-              </div>
-
-              <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="cc-exp"
-                  value={expiryDate}
-                  onChange={(event) => setExpiryDate(event.target.value)}
-                  placeholder="Expiry date"
-                  className={fieldClass}
-                />
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="cc-csc"
-                    value={securityCode}
-                    onChange={(event) => setSecurityCode(event.target.value)}
-                    placeholder="Security code"
-                    className={fieldClass}
-                  />
-                  <CreditCard
-                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
-                    strokeWidth={1.5}
-                  />
-                </div>
-              </div>
-
-              <h4 className="mt-6 text-[16px] font-medium leading-6 text-neutral-950">
-                Billing address
-              </h4>
-
-              <div className="mt-3 flex flex-col gap-2.5">
-                <input
-                  type="text"
-                  autoComplete="cc-name"
-                  value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
-                  placeholder="Full name"
-                  className={fieldClass}
-                />
-
-                <label className="block">
-                  <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.04em] text-neutral-500">
-                    Country or region
-                  </span>
-                  <div className="relative">
-                    <select
-                      value={country}
-                      onChange={(event) =>
-                        setCountry(event.target.value as (typeof BILLING_COUNTRIES)[number])
-                      }
-                      className={`${fieldClass} appearance-none pr-9`}
-                    >
-                      {BILLING_COUNTRIES.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500"
-                      strokeWidth={1.75}
-                    />
-                  </div>
-                </label>
-
-                <input
-                  type="text"
-                  autoComplete="street-address"
-                  value={address}
-                  onChange={(event) => setAddress(event.target.value)}
-                  placeholder="Address"
-                  className={fieldClass}
-                />
-              </div>
-
-              <p className="mt-5 text-[12px] leading-5 text-neutral-500">
-                By continuing, you authorize Lexee to save this payment method and charge it
-                for future payments.
-              </p>
-
-              <button
-                type="button"
-                onClick={onContinue}
-                disabled={!canContinue}
-                className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-[var(--button-primary-bg)] px-3.5 text-body-md text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--button-primary-disabled-bg)] disabled:text-[var(--button-primary-disabled-fg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-              >
-                Continue
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
-  );
-}
-
 type ModelSelectProps = {
   label: string;
   options: ModelOption[];
@@ -1957,80 +2314,105 @@ function ModelSelect({
   }, [open, onOpenChange]);
 
   return (
-    <div ref={rootRef} className="relative mt-5">
-      <button
-        type="button"
-        aria-label={label}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        onClick={() => onOpenChange(!open)}
-        className={[
-          "flex w-full items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-left",
-          "text-body-md text-neutral-950 ui-t-colors",
-          "hover:border-neutral-300 hover:bg-neutral-100",
-          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300",
-          open ? "border-violet-300 ring-2 ring-violet-200/60" : "",
-        ].join(" ")}
-      >
-        <span className="min-w-0 truncate">{selected?.label}</span>
-        <ChevronDown
+    <div className="mt-5">
+      <div ref={rootRef} className="relative">
+        <button
+          type="button"
+          aria-label={label}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          onClick={() => onOpenChange(!open)}
           className={[
-            "h-4 w-4 shrink-0 text-neutral-600 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
-            open ? "rotate-180" : "",
+            "flex w-full items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-left",
+            "text-body-md text-neutral-950 ui-t-colors",
+            "hover:border-neutral-300 hover:bg-neutral-100",
+            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300",
+            open ? "border-violet-300 ring-2 ring-violet-200/60" : "",
           ].join(" ")}
-          strokeWidth={1.75}
-        />
-      </button>
+        >
+          <span className="min-w-0 truncate">{selected?.label}</span>
+          <ChevronDown
+            className={[
+              "h-4 w-4 shrink-0 text-neutral-600 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+              open ? "rotate-180" : "",
+            ].join(" ")}
+            strokeWidth={1.75}
+          />
+        </button>
 
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            key="model-select-menu"
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -2 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -1 }}
-            transition={menuTransition}
-            className="absolute left-0 right-0 top-full z-20 mt-2 origin-top rounded-xl border border-neutral-200 bg-neutral-50 p-2 shadow-[var(--shadow-popup)]"
-          >
-            <div role="listbox" aria-label={label} className="flex flex-col gap-1">
-              {options.map((option) => {
-                const isSelected = option.id === value;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => {
-                      onChange(option.id);
-                      onOpenChange(false);
-                    }}
-                    className={[
-                      "flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left ui-t-colors",
-                      isSelected
-                        ? "bg-neutral-200 text-neutral-950"
-                        : "text-neutral-700 hover:bg-neutral-200/70 hover:text-neutral-950",
-                    ].join(" ")}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-body-md text-inherit">{option.label}</span>
-                      <span className="mt-1 block text-[12px] leading-5 text-neutral-600">
-                        {option.description}
+        <AnimatePresence>
+          {open ? (
+            <motion.div
+              key="model-select-menu"
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -2 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -1 }}
+              transition={menuTransition}
+              className="absolute left-0 right-0 top-full z-20 mt-2 origin-top rounded-xl border border-neutral-200 bg-neutral-50 p-2 shadow-[var(--shadow-popup)]"
+            >
+              <div role="listbox" aria-label={label} className="flex flex-col gap-1">
+                {options.map((option) => {
+                  const isSelected = option.id === value;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => {
+                        onChange(option.id);
+                        onOpenChange(false);
+                      }}
+                      className={[
+                        "flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left ui-t-colors",
+                        isSelected
+                          ? "bg-neutral-200 text-neutral-950"
+                          : "text-neutral-700 hover:bg-neutral-200/70 hover:text-neutral-950",
+                      ].join(" ")}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-body-md text-inherit">
+                          {option.label}
+                        </span>
+                        <span className="mt-1 block text-[12px] leading-5 text-neutral-600">
+                          {option.description}
+                        </span>
                       </span>
-                    </span>
-                    {isSelected ? (
-                      <Check
-                        className="mt-0.5 h-4 w-4 shrink-0 text-neutral-700"
-                        strokeWidth={2}
-                      />
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+                      {isSelected ? (
+                        <Check
+                          className="mt-0.5 h-4 w-4 shrink-0 text-neutral-700"
+                          strokeWidth={2}
+                        />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
+
+      {selected ? (
+        <div className="mt-4 grid grid-cols-2 gap-6">
+          <div>
+            <p className="font-tiempos-text text-[12px] leading-4 text-neutral-500">
+              Input token rate
+            </p>
+            <p className="mt-1.5 font-tiempos-text text-[16px] font-medium leading-5 tracking-[-0.01em] text-neutral-950">
+              {selected.inputTokenRate}
+            </p>
+          </div>
+          <div>
+            <p className="font-tiempos-text text-[12px] leading-4 text-neutral-500">
+              Output token rate
+            </p>
+            <p className="mt-1.5 font-tiempos-text text-[16px] font-medium leading-5 tracking-[-0.01em] text-neutral-950">
+              {selected.outputTokenRate}
+            </p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2054,19 +2436,22 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [pendingSectionId, setPendingSectionId] = useState<SettingsSectionId | null>(
     null,
   );
+  const [savedResearchModelId, setSavedResearchModelId] =
+    useState("claude-opus-4");
+  const [savedQuickModelId, setSavedQuickModelId] = useState("claude-haiku");
   const [researchModelId, setResearchModelId] = useState("claude-opus-4");
   const [quickModelId, setQuickModelId] = useState("claude-haiku");
   const [researchMenuOpen, setResearchMenuOpen] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
   const [buyCreditsAmount, setBuyCreditsAmount] = useState("50");
-  const [updateCardOpen, setUpdateCardOpen] = useState(false);
-  const [expandedMonthlyBillId, setExpandedMonthlyBillId] = useState<string | null>(null);
-  const [billingPage, setBillingPage] = useState<
-    "overview" | "monthly-bills" | "invoices"
-  >("overview");
+  const [billingPage, setBillingPage] = useState<"overview" | "monthly-bills">(
+    "overview",
+  );
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [billingDocumentKind, setBillingDocumentKind] =
+    useState<BillingDocumentKind>("invoice");
   const [firmUsers, setFirmUsers] = useState<FirmUser[]>(DEFAULT_FIRM_USERS);
   const [limitUser, setLimitUser] = useState<FirmUser | null>(null);
   const [setLimitOpen, setSetLimitOpen] = useState(false);
@@ -2078,6 +2463,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   const usageCredits = USAGE_BY_TIMEFRAME[usageTimeframeId];
   const usageCreditsRemaining = usageCredits.total - usageCredits.used;
+  const usageCreditsPercent =
+    usageCredits.total > 0
+      ? Math.min(100, Math.round((usageCredits.used / usageCredits.total) * 100))
+      : 0;
   const selectedUsageTimeframe =
     USAGE_TIMEFRAMES.find((item) => item.id === usageTimeframeId) ??
     USAGE_TIMEFRAMES[0];
@@ -2092,24 +2481,34 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     closeBuyCredits();
   }, [closeBuyCredits]);
 
-  const closeUpdateCard = useCallback(() => {
-    setUpdateCardOpen(false);
-  }, []);
-
-  const continueUpdateCard = useCallback(() => {
-    // Prototype: card update flow is visual-only for now.
-    closeUpdateCard();
-  }, [closeUpdateCard]);
-
   const closeInvoiceDialog = useCallback(() => {
     setInvoiceDialogOpen(false);
     setSelectedInvoice(null);
+    setBillingDocumentKind("invoice");
   }, []);
 
-  const openInvoiceDialog = useCallback((invoice: InvoiceRecord) => {
-    setSelectedInvoice(invoice);
-    setInvoiceDialogOpen(true);
-  }, []);
+  const openInvoiceDialog = useCallback(
+    (invoice: InvoiceRecord, kind: BillingDocumentKind = "invoice") => {
+      setSelectedInvoice(invoice);
+      setBillingDocumentKind(kind);
+      setInvoiceDialogOpen(true);
+    },
+    [],
+  );
+
+  const openMonthlyBillInvoice = useCallback(
+    (bill: MonthlyBill) => {
+      openInvoiceDialog(monthlyBillToInvoice(bill), "invoice");
+    },
+    [openInvoiceDialog],
+  );
+
+  const openPurchaseReceipt = useCallback(
+    (purchase: PurchaseHistoryEntry) => {
+      openInvoiceDialog(purchaseToInvoice(purchase), "receipt");
+    },
+    [openInvoiceDialog],
+  );
 
   const closeSetLimit = useCallback(() => {
     setSetLimitOpen(false);
@@ -2156,9 +2555,29 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     });
   }, [query]);
 
+  const configDirty =
+    researchModelId !== savedResearchModelId ||
+    quickModelId !== savedQuickModelId;
+
+  const saveConfiguration = useCallback(() => {
+    setSavedResearchModelId(researchModelId);
+    setSavedQuickModelId(quickModelId);
+  }, [researchModelId, quickModelId]);
+
+  const discardConfiguration = useCallback(() => {
+    setResearchModelId(savedResearchModelId);
+    setQuickModelId(savedQuickModelId);
+    setResearchMenuOpen(false);
+    setQuickMenuOpen(false);
+  }, [savedResearchModelId, savedQuickModelId]);
+
   const handleClose = useCallback(() => {
+    setResearchModelId(savedResearchModelId);
+    setQuickModelId(savedQuickModelId);
+    setResearchMenuOpen(false);
+    setQuickMenuOpen(false);
     onClose();
-  }, [onClose]);
+  }, [onClose, savedResearchModelId, savedQuickModelId]);
 
   const goToSearchResult = useCallback((result: SettingsSearchResult) => {
     setActiveNavId(result.navId);
@@ -2197,10 +2616,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           closeBuyCredits();
           return;
         }
-        if (updateCardOpen) {
-          closeUpdateCard();
-          return;
-        }
         if (invoiceDialogOpen) {
           closeInvoiceDialog();
           return;
@@ -2213,7 +2628,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           setUsagePage("overview");
           return;
         }
-        if (billingPage === "monthly-bills" || billingPage === "invoices") {
+        if (billingPage === "monthly-bills") {
           setBillingPage("overview");
           return;
         }
@@ -2243,8 +2658,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     searchOpen,
     buyCreditsOpen,
     closeBuyCredits,
-    updateCardOpen,
-    closeUpdateCard,
     invoiceDialogOpen,
     closeInvoiceDialog,
     setLimitOpen,
@@ -2266,14 +2679,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       setUsageTimeframeId("billing-cycle");
       setUsagePage("overview");
       setBillingPage("overview");
-      setExpandedMonthlyBillId(null);
       setFirmUsers(DEFAULT_FIRM_USERS);
       closeBuyCredits();
-      closeUpdateCard();
       closeInvoiceDialog();
       closeSetLimit();
     }
-  }, [open, closeBuyCredits, closeUpdateCard, closeInvoiceDialog, closeSetLimit]);
+  }, [open, closeBuyCredits, closeInvoiceDialog, closeSetLimit]);
 
   useEffect(() => {
     setResearchMenuOpen(false);
@@ -2284,7 +2695,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     }
     if (activeNavId !== "billing") {
       setBillingPage("overview");
-      setExpandedMonthlyBillId(null);
+    }
+    if (!SHOW_BILLING_AND_PURCHASE_HISTORY && activeNavId === "billing") {
+      setActiveNavId("configuration");
+      setBillingPage("overview");
     }
   }, [activeNavId]);
 
@@ -2333,23 +2747,21 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       ? "Logs"
       : activeNavId === "billing" && billingPage === "monthly-bills"
         ? "Total Monthly bill"
-        : activeNavId === "billing" && billingPage === "invoices"
-          ? "Invoices"
-          : SETTINGS_NAV_ITEMS.find((item) => item.id === activeNavId)?.label ??
-            "Settings";
+        : SETTINGS_NAV_ITEMS.find((item) => item.id === activeNavId)?.label ??
+          "Settings";
 
-  const visibleUsageLogs =
-    usagePage === "logs" ? USAGE_LOGS : USAGE_LOGS.slice(0, USAGE_LOGS_PREVIEW_COUNT);
+  const visibleUsageLogs = useMemo(
+    () =>
+      usagePage === "logs"
+        ? USAGE_LOGS
+        : USAGE_LOGS.slice(0, USAGE_LOGS_PREVIEW_COUNT),
+    [usagePage],
+  );
 
   const visibleMonthlyBills =
     billingPage === "monthly-bills"
       ? MONTHLY_BILLS
       : MONTHLY_BILLS.slice(0, MONTHLY_BILLS_PREVIEW_COUNT);
-
-  const visibleInvoices =
-    billingPage === "invoices"
-      ? INVOICES
-      : INVOICES.slice(0, INVOICES_PREVIEW_COUNT);
 
   return (
     <AnimatePresence>
@@ -2541,24 +2953,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                         Total Monthly bill
                       </h2>
                     </button>
-                  ) : activeNavId === "billing" && billingPage === "invoices" ? (
-                    <button
-                      type="button"
-                      onClick={() => setBillingPage("overview")}
-                      className="inline-flex items-center gap-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-                      aria-label="Back to Billing"
-                    >
-                      <ChevronLeft
-                        className="h-5 w-5 shrink-0 text-neutral-700"
-                        strokeWidth={1.75}
-                      />
-                      <h2
-                        id={titleId}
-                        className="font-tiempos-headline text-[22px] leading-none tracking-[-0.015em] text-neutral-950"
-                      >
-                        Invoices
-                      </h2>
-                    </button>
                   ) : (
                     <h2
                       id={titleId}
@@ -2579,13 +2973,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <p className="mt-3 text-body-md-secondary leading-6">
                       Full monthly spend history with model-level breakdowns.
                     </p>
-                  ) : activeNavId === "billing" && billingPage === "invoices" ? (
-                    <p className="mt-3 text-body-md-secondary leading-6">
-                      Complete invoice history for the firm.
-                    </p>
                   ) : activeNavId === "billing" ? (
                     <p className="mt-3 text-body-md-secondary leading-6">
-                      Plan, payment method, invoices and AI credit spend by model.
+                      Plan and AI credit spend by model.
                     </p>
                   ) : activeNavId === "users" ? (
                     <p className="mt-3 text-body-md-secondary leading-6">
@@ -2758,20 +3148,42 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                       </div>
                     </div>
 
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-[12px] font-medium leading-4 text-neutral-500">
+                          Credits used
+                        </p>
+                        <p className="text-[12px] font-medium leading-4 text-neutral-700">
+                          {usageCreditsPercent}%
+                        </p>
+                      </div>
+                      <div
+                        className="h-2.5 overflow-hidden rounded-full bg-neutral-200"
+                        role="progressbar"
+                        aria-label="Credits used"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={usageCreditsPercent}
+                      >
+                        <div
+                          className="h-full rounded-full bg-violet-500 ui-t-colors"
+                          style={{ width: `${usageCreditsPercent}%` }}
+                        />
+                      </div>
+                      <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] leading-4 text-neutral-600">
+                        <p>Next charge: Aug 20, 2026 · $1,240.00</p>
+                        <span className="hidden text-neutral-300 sm:inline" aria-hidden>
+                          ·
+                        </span>
+                        <p>Resets Fri 12:30 PM</p>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                       <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 shadow-[var(--shadow-card)]">
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="text-[12px] font-medium leading-4 text-neutral-500">
-                            Total credits
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setBuyCreditsOpen(true)}
-                            className="shrink-0 text-[12px] font-medium leading-4 text-violet-600 underline-offset-2 hover:text-violet-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-                          >
-                            Buy credits
-                          </button>
-                        </div>
+                        <p className="text-[12px] font-medium leading-4 text-neutral-500">
+                          Total credits
+                        </p>
                         <p className="mt-3 font-tiempos-text text-[28px] leading-none tracking-[-0.015em] text-neutral-950">
                           {formatCredits(usageCredits.total)}
                         </p>
@@ -2797,26 +3209,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </div>
 
                     <section className="border-t border-neutral-200 pt-8">
-                      <h3 className="text-[16px] font-medium leading-6 text-neutral-950">
-                        System usage
-                      </h3>
-                      <p className="mt-1 max-w-prose text-[13px] leading-6 text-neutral-600">
-                        Total consumption across the firm&apos;s workspace this cycle.
-                      </p>
-                      <div className="mt-5 flex flex-col gap-4">
-                        {SYSTEM_USAGE_METRICS.map((metric) => (
-                          <UsageProgressRow
-                            key={metric.id}
-                            label={metric.label}
-                            used={metric.used}
-                            total={metric.total}
-                            unit={metric.unit}
-                          />
-                        ))}
-                      </div>
-                    </section>
-
-                    <section className="border-t border-neutral-200 pt-8">
                       <div className="mb-4 flex items-center justify-between gap-3">
                         <h3 className="text-[16px] font-medium leading-6 text-neutral-950">Logs</h3>
                         <button
@@ -2829,42 +3221,32 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                       </div>
                       <UsageLogsTable logs={visibleUsageLogs} />
                     </section>
+
+                    <section
+                      id="settings-section-document-processing"
+                      className="border-t border-neutral-200 pt-8"
+                    >
+                      <h3 className="font-tiempos-text text-[22px] leading-none tracking-[-0.015em] text-neutral-950">
+                        Document Processing
+                      </h3>
+                      <p className="mt-2.5 max-w-prose font-tiempos-text text-[14px] leading-6 text-neutral-600">
+                        Async cost to import matters into Lexee (per-matter, page-based — separate
+                        from model token costs).
+                      </p>
+                      <div className="mt-5">
+                        <DocumentProcessingTable jobs={DOCUMENT_PROCESSING_JOBS} />
+                      </div>
+                    </section>
                   </div>
                 ) : activeNavId === "billing" && billingPage === "monthly-bills" ? (
                   <div className="max-w-xl pt-2">
                     <MonthlyBillsList
                       bills={MONTHLY_BILLS}
-                      expandedId={expandedMonthlyBillId}
-                      onExpandedChange={setExpandedMonthlyBillId}
-                      reduceMotion={reduceMotion}
-                      transition={searchMenuTransition}
+                      onView={openMonthlyBillInvoice}
                     />
-                  </div>
-                ) : activeNavId === "billing" && billingPage === "invoices" ? (
-                  <div className="pt-2">
-                    <InvoicesTable invoices={INVOICES} onView={openInvoiceDialog} />
                   </div>
                 ) : activeNavId === "billing" ? (
                   <div className="flex w-full flex-col gap-10 pt-2">
-                    <div className="max-w-xl rounded-xl border border-neutral-200 bg-neutral-50 p-5 shadow-[var(--shadow-card)]">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.04em] text-neutral-500">
-                        Payment method
-                      </p>
-                      <p className="mt-2 font-tiempos-text text-[22px] leading-none tracking-[-0.015em] text-neutral-950">
-                        Visa •••• 4471
-                      </p>
-                      <p className="mt-2 text-[13px] leading-5 text-neutral-600">
-                        Next charge: Aug 20, 2026 · $1,240.00
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setUpdateCardOpen(true)}
-                        className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-lg border border-neutral-300 bg-[var(--background)] px-3 text-body-md text-neutral-950 ui-t-colors hover:bg-neutral-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-                      >
-                        Update card
-                      </button>
-                    </div>
-
                     <section className="max-w-xl">
                       <div className="mb-4 flex items-center justify-between gap-3">
                         <h3 className="text-[16px] font-medium leading-6 text-neutral-950">
@@ -2880,29 +3262,17 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                       </div>
                       <MonthlyBillsList
                         bills={visibleMonthlyBills}
-                        expandedId={expandedMonthlyBillId}
-                        onExpandedChange={setExpandedMonthlyBillId}
-                        reduceMotion={reduceMotion}
-                        transition={searchMenuTransition}
+                        onView={openMonthlyBillInvoice}
                       />
                     </section>
 
                     <section>
-                      <div className="mb-4 flex items-center justify-between gap-3">
-                        <h3 className="text-[16px] font-medium leading-6 text-neutral-950">
-                          Invoices
-                        </h3>
-                        <button
-                          type="button"
-                          onClick={() => setBillingPage("invoices")}
-                          className="shrink-0 text-[12px] font-medium leading-4 text-violet-600 underline-offset-2 hover:text-violet-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-                        >
-                          View more
-                        </button>
-                      </div>
-                      <InvoicesTable
-                        invoices={visibleInvoices}
-                        onView={openInvoiceDialog}
+                      <h3 className="mb-4 text-[16px] font-medium leading-6 text-neutral-950">
+                        Purchase History
+                      </h3>
+                      <PurchaseHistoryTable
+                        purchases={PURCHASE_HISTORY}
+                        onView={openPurchaseReceipt}
                       />
                     </section>
                   </div>
@@ -2913,17 +3283,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 ) : activeNavId === "client-acquisition" ? (
                   <div className="flex w-full flex-col gap-10 pt-2">
                     <section>
-                      <div className="mb-4 flex items-center justify-between gap-3">
+                      <div className="mb-4">
                         <h3 className="text-[16px] font-medium leading-6 text-neutral-950">
                           Credits
                         </h3>
-                        <button
-                          type="button"
-                          onClick={() => setBuyCreditsOpen(true)}
-                          className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-[var(--button-primary-bg)] px-3.5 text-body-md text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-                        >
-                          Add credits
-                        </button>
                       </div>
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 shadow-[var(--shadow-card)]">
@@ -2965,6 +3328,38 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </div>
                 ) : null}
               </div>
+
+              {activeNavId === "configuration" ? (
+                <div className="flex shrink-0 items-center justify-between gap-3 border-t border-neutral-200 bg-[var(--background)] px-8 py-4">
+                  <p
+                    className={[
+                      "min-w-0 text-[13px] leading-5 ui-t-colors",
+                      configDirty ? "text-neutral-600" : "text-neutral-400",
+                    ].join(" ")}
+                    aria-live="polite"
+                  >
+                    {configDirty ? "Unsaved changes" : "No unsaved changes"}
+                  </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={discardConfiguration}
+                      disabled={!configDirty}
+                      className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-body-md-secondary text-neutral-700 ui-t-colors hover:bg-neutral-200 hover:text-neutral-950 disabled:cursor-not-allowed disabled:text-neutral-400 disabled:hover:bg-transparent disabled:hover:text-neutral-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+                    >
+                      Discard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveConfiguration}
+                      disabled={!configDirty}
+                      className="inline-flex h-9 items-center justify-center rounded-lg bg-[var(--button-primary-bg)] px-3.5 text-body-md text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--button-primary-disabled-bg)] disabled:text-[var(--button-primary-disabled-fg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+                    >
+                      Save changes
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <BuyCreditsDialog
@@ -2974,14 +3369,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               onClose={closeBuyCredits}
               onConfirm={confirmBuyCredits}
             />
-            <UpdateCardDialog
-              open={updateCardOpen}
-              onClose={closeUpdateCard}
-              onContinue={continueUpdateCard}
-            />
             <InvoiceDetailDialog
               open={invoiceDialogOpen}
               invoice={selectedInvoice}
+              documentKind={billingDocumentKind}
               onClose={closeInvoiceDialog}
             />
             <SetLimitDialog

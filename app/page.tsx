@@ -8,9 +8,7 @@ import {
   Copy,
   Download,
   FileText,
-  Mic,
   Pencil,
-  Plus,
   RotateCcw,
   Search,
   Share2,
@@ -854,7 +852,7 @@ function HomeInner() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={uiMotionTransition(reduceMotion, 0.2)}
-                    className="rounded-t-xl border border-b-0 border-[color:var(--chat-outline-accent)] bg-violet-50 px-3 py-2"
+                    className="rounded-t-2xl bg-violet-50 px-3 py-2"
                   >
                     <p className="flex flex-wrap items-baseline gap-x-1 text-[12px] leading-4 text-neutral-800">
                       <span>Matter selected:</span>
@@ -869,8 +867,8 @@ function HomeInner() {
 
               <div
                 className={[
-                  "rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-chatbox)] ui-t-layout",
-                  selectedMatter ? "rounded-b-xl rounded-t-none border-t-0" : "",
+                  "rounded-2xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-chatbox)] ui-t-layout",
+                  selectedMatter ? "rounded-b-2xl rounded-t-none border-t-0" : "",
                 ].join(" ")}
               >
                 {isVoiceMode ? (
@@ -897,38 +895,18 @@ function HomeInner() {
                       className="w-full resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
                     />
 
-                    <div className="mt-1.5 flex items-center justify-between">
+                    <div className="mt-1.5 flex items-center justify-end">
                       <button
                         type="button"
-                        aria-label="Add context"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--button-ghost-fg)] hover:bg-[var(--button-ghost-hover)] hover:text-[var(--foreground)]"
+                        aria-label="Send message"
+                        onClick={() => {
+                          void sendMessage();
+                        }}
+                        disabled={isSendDisabled}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--button-primary-bg)] text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--button-primary-disabled-bg)] disabled:text-[var(--button-primary-disabled-fg)] disabled:hover:bg-[var(--button-primary-disabled-bg)]"
                       >
-                        <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                        <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2} />
                       </button>
-
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          aria-label="Voice input"
-                          onClick={beginVoiceMode}
-                          disabled={!isSpeechSupported || isGenerating}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--button-ghost-fg)] hover:bg-[var(--button-ghost-hover)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <Mic className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                        </button>
-
-                        <button
-                          type="button"
-                          aria-label="Send message"
-                          onClick={() => {
-                            void sendMessage();
-                          }}
-                          disabled={isSendDisabled}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--button-primary-bg)] text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--button-primary-disabled-bg)] disabled:text-[var(--button-primary-disabled-fg)] disabled:hover:bg-[var(--button-primary-disabled-bg)]"
-                        >
-                          <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2} />
-                        </button>
-                      </div>
                     </div>
                   </>
                 )}
@@ -1330,7 +1308,7 @@ function HomeInner() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={uiMotionTransition(reduceMotion, 0.2)}
-                  className="rounded-t-xl border border-b-0 border-[color:var(--chat-outline-accent)] bg-violet-50 px-3 py-2"
+                  className="rounded-t-2xl bg-violet-50 px-3 py-2"
                 >
                   <p className="flex flex-wrap items-baseline gap-x-1 text-[12px] leading-4 text-neutral-800">
                     <span>Matter selected:</span>
@@ -1345,8 +1323,8 @@ function HomeInner() {
 
             <div
               className={[
-                "rounded-xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-chatbox)] ui-t-layout",
-                selectedMatter ? "rounded-b-xl rounded-t-none border-t-0" : "",
+                "rounded-2xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-chatbox)] ui-t-layout",
+                selectedMatter ? "rounded-b-2xl rounded-t-none border-t-0" : "",
               ].join(" ")}
             >
               {isVoiceMode ? (
@@ -1373,38 +1351,18 @@ function HomeInner() {
                     className="w-full resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
                   />
 
-                  <div className="mt-1.5 flex items-center justify-between">
+                  <div className="mt-1.5 flex items-center justify-end">
                     <button
                       type="button"
-                      aria-label="Add context"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--button-ghost-fg)] hover:bg-[var(--button-ghost-hover)] hover:text-[var(--foreground)]"
+                      aria-label="Send message"
+                      onClick={() => {
+                        void sendMessage();
+                      }}
+                      disabled={isSendDisabled}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--button-primary-bg)] text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--button-primary-disabled-bg)] disabled:text-[var(--button-primary-disabled-fg)] disabled:hover:bg-[var(--button-primary-disabled-bg)]"
                     >
-                      <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                      <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2} />
                     </button>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        aria-label="Voice input"
-                        onClick={beginVoiceMode}
-                        disabled={!isSpeechSupported || isGenerating}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--button-ghost-fg)] hover:bg-[var(--button-ghost-hover)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        <Mic className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                      </button>
-
-                      <button
-                        type="button"
-                        aria-label="Send message"
-                        onClick={() => {
-                          void sendMessage();
-                        }}
-                        disabled={isSendDisabled}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--button-primary-bg)] text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--button-primary-disabled-bg)] disabled:text-[var(--button-primary-disabled-fg)] disabled:hover:bg-[var(--button-primary-disabled-bg)]"
-                      >
-                        <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2} />
-                      </button>
-                    </div>
                   </div>
                 </>
               )}

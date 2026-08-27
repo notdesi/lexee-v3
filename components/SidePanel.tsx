@@ -10,6 +10,7 @@ import {
   ChevronRight,
   CircleCheck,
   History,
+  MessageSquareHeart,
   MoreVertical,
   PackageOpen,
   PanelLeftClose,
@@ -24,7 +25,6 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AnimatedPopover } from "@/components/AnimatedPopover";
-import { SearchModal } from "@/components/SearchModal";
 import { SettingsModal } from "@/components/SettingsModal";
 import { uiMotionTransition } from "@/lib/ui-motion";
 import {
@@ -55,7 +55,6 @@ export function SidePanel() {
   const [recentExpanded, setRecentExpanded] = useState(true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [appearanceMenuOpen, setAppearanceMenuOpen] = useState(false);
-  const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window === "undefined") return "light";
@@ -95,12 +94,6 @@ export function SidePanel() {
     setAppearanceMenuOpen(false);
     setHistoryRowMenuId(null);
   }, [collapsed]);
-
-  useEffect(() => {
-    const openSearch = () => setSearchModalOpen(true);
-    window.addEventListener("lexee:open-search", openSearch);
-    return () => window.removeEventListener("lexee:open-search", openSearch);
-  }, []);
 
   useEffect(() => {
     const onActiveConversation = (event: Event) => {
@@ -205,7 +198,7 @@ export function SidePanel() {
         label: "Search",
         icon: Search,
         onClick: () => {
-          setSearchModalOpen(true);
+          router.push("/search");
         },
       },
       {
@@ -213,7 +206,7 @@ export function SidePanel() {
         label: "Artifacts",
         icon: PackageOpen,
         onClick: () => {
-          // Prototype: replace with real artifacts page later.
+          router.push("/artifacts");
         },
       },
       {
@@ -241,6 +234,14 @@ export function SidePanel() {
         },
       },
       {
+        key: "share-feedback",
+        label: "Share Feedback",
+        icon: MessageSquareHeart,
+        onClick: () => {
+          router.push("/feedback");
+        },
+      },
+      {
         key: "history",
         label: "History",
         icon: History,
@@ -255,15 +256,18 @@ export function SidePanel() {
    * no primary item is active — the nested history row shows selection instead.
    */
   const activeNavKey = (() => {
-    if (searchModalOpen) return "search";
+    if (pathname === "/search") return "search";
     if (pathname === "/skills" || pathname.startsWith("/skills/")) return "skills";
+    if (pathname === "/feedback") return "share-feedback";
+    if (pathname === "/artifacts") return "artifacts";
     if (pathname === "/") {
       if (selectedHistoryConversationId) return null;
       if (selectedKey === "history") return "history";
       if (
         selectedKey === "artifacts" ||
         selectedKey === "todo" ||
-        selectedKey === "jobs"
+        selectedKey === "jobs" ||
+        selectedKey === "share-feedback"
       ) {
         return selectedKey;
       }
@@ -314,7 +318,10 @@ export function SidePanel() {
             <span
               aria-hidden={collapsed}
               className={[
-                "min-w-0 truncate text-body-md-secondary leading-[20px] transition-[opacity,max-width] duration-200 ease-out motion-reduce:transition-none",
+                "min-w-0 truncate transition-[opacity,max-width] duration-200 ease-out motion-reduce:transition-none",
+                isHistory
+                  ? "text-[12px] leading-4"
+                  : "text-body-md-secondary leading-[20px]",
                 collapsed
                   ? "max-w-0 overflow-hidden opacity-0"
                   : "max-w-[200px] opacity-100",
@@ -646,7 +653,6 @@ export function SidePanel() {
         </div>
       </aside>
 
-      <SearchModal open={searchModalOpen} onClose={() => setSearchModalOpen(false)} />
       <SettingsModal
         open={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}

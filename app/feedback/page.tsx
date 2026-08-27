@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, Check, ChevronDown, MessageSquareHeart, Plus } from "lucide-react";
+import { ArrowUp, Check, ChevronDown, MessageSquareHeart, Plus, Search } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -133,7 +133,7 @@ function FeedbackComposer({
           onKeyDown={handleKeyDown}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Share your feedback"
+          placeholder="Ask a question or share feedback"
           className="w-full resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
         />
 
@@ -168,9 +168,26 @@ function FeedbackHistoryDropdown({
   onSelectConversation: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const menuRef = useRef<HTMLDivElement | null>(null);
   const activeConversation = conversations.find((conversation) => conversation.id === activeId);
-  const triggerLabel = activeConversation?.title ?? "New feedback";
+  const triggerLabel = activeConversation?.title ?? "New conversation";
+
+  const filteredConversations = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return conversations;
+    return conversations.filter((conversation) => {
+      if (conversation.title.toLowerCase().includes(normalized)) return true;
+      return conversation.messages.some((message) =>
+        message.content.toLowerCase().includes(normalized),
+      );
+    });
+  }, [conversations, query]);
+
+  useEffect(() => {
+    if (open) return;
+    setQuery("");
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -216,6 +233,17 @@ function FeedbackHistoryDropdown({
         open={open}
         className="absolute left-0 z-50 mt-2 w-[320px] rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]"
       >
+        <div className="mb-2 flex items-center gap-2 rounded-lg border border-[color:var(--chat-outline-accent)] bg-violet-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
+          <Search className="h-4 w-4 shrink-0 text-neutral-500" strokeWidth={1.75} />
+          <input
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search feedback"
+            className="w-full bg-transparent text-body-md text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
+          />
+        </div>
+
         <button
           type="button"
           role="menuitem"
@@ -231,7 +259,7 @@ function FeedbackHistoryDropdown({
           ].join(" ")}
         >
           <Plus className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-          <span className="min-w-0 flex-1 truncate">New feedback</span>
+          <span className="min-w-0 flex-1 truncate">New conversation</span>
           {activeId === null ? (
             <Check className="ml-auto h-4 w-4 shrink-0 text-neutral-700" strokeWidth={2} />
           ) : null}
@@ -240,8 +268,8 @@ function FeedbackHistoryDropdown({
         <div className="my-1.5 h-px bg-neutral-200" role="presentation" />
 
         <div className="max-h-56 overflow-y-auto">
-          {conversations.length > 0 ? (
-            conversations.map((conversation) => {
+          {filteredConversations.length > 0 ? (
+            filteredConversations.map((conversation) => {
               const isActive = conversation.id === activeId;
               return (
                 <button
@@ -272,7 +300,9 @@ function FeedbackHistoryDropdown({
               );
             })
           ) : (
-            <p className="px-2 py-2 text-[12px] leading-4 text-neutral-600">No conversations yet.</p>
+            <p className="px-2 py-2 text-[12px] leading-4 text-neutral-600">
+              {query.trim() ? "No matching feedback." : "No feedback yet."}
+            </p>
           )}
         </div>
       </AnimatedPopover>
@@ -437,13 +467,12 @@ export default function FeedbackPage() {
                       strokeWidth={1.5}
                     />
                   </span>
-                  <h1 className="mt-4 text-center font-inter text-[24px] font-medium leading-8 tracking-[-0.02em] text-neutral-950">
+                  <h1 className="mt-4 text-center font-tiempos-text text-[24px] font-medium leading-8 tracking-[-0.02em] text-neutral-950">
                     Help us make Lexee better
                   </h1>
                   <p className="mt-2 text-center text-body-md-secondary">
-                    Tell us how you&apos;re using Lexee, what&apos;s working,
-                    <br />
-                    and what you wish it could do.
+                    Ask about Lexee&apos;s capabilities, get help with something
+                    you&apos;re stuck on, or share feedback with the product team.
                   </p>
                 </div>
 

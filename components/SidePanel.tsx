@@ -235,7 +235,7 @@ export function SidePanel() {
       },
       {
         key: "share-feedback",
-        label: "Share Feedback",
+        label: "Help & Feedback",
         icon: MessageSquareHeart,
         onClick: () => {
           router.push("/feedback");
@@ -288,7 +288,7 @@ export function SidePanel() {
           className={[
             "group mx-2 flex w-[calc(100%-16px)] items-center rounded-[6px] ui-t-colors",
             "text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950",
-            isActive || isNewChat ? "bg-neutral-200 text-neutral-950" : "",
+            isActive ? "bg-neutral-200 text-neutral-950" : "",
           ].join(" ")}
         >
           <button
@@ -325,7 +325,7 @@ export function SidePanel() {
                 collapsed
                   ? "max-w-0 overflow-hidden opacity-0"
                   : "max-w-[200px] opacity-100",
-                (isActive || isNewChat) && !collapsed ? "text-neutral-950" : "",
+                isActive && !collapsed ? "text-neutral-950" : "",
               ].join(" ")}
             >
               {item.label}

@@ -93,7 +93,7 @@ export default function SearchPage() {
   return (
     <div className="flex h-[100dvh] min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--background)] px-8 py-8">
       <div className="mx-auto w-full max-w-5xl">
-        <h1 className="font-tiempos-headline text-[32px] leading-none tracking-[-0.015em] text-neutral-950">
+        <h1 className="font-tiempos-text text-[32px] leading-none tracking-[-0.015em] text-neutral-950">
           Search
         </h1>
         <p className="mt-2 text-body-md-secondary">

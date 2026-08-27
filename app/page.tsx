@@ -712,7 +712,7 @@ function HomeInner() {
         ref={matterMenuRef}
         className={[
           "z-20 flex w-full shrink-0 justify-end bg-[var(--background)] ui-t-layout pr-4",
-          chatStarted ? "border-b border-[color:var(--chat-outline)] pb-3 pt-3" : "pb-8 pt-2",
+          chatStarted ? "pb-3 pt-3" : "pb-8 pt-2",
         ].join(" ")}
       >
         <div className="relative">

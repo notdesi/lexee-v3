@@ -185,7 +185,7 @@ export default function ArtifactsPage() {
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 pb-8 pt-2">
         <div className="mx-auto flex min-h-full w-full max-w-5xl flex-1 flex-col">
-          <h1 className="font-tiempos-headline text-[32px] leading-none tracking-[-0.015em] text-neutral-950">
+          <h1 className="font-tiempos-text text-[32px] leading-none tracking-[-0.015em] text-neutral-950">
             Awaiting your review
           </h1>
           <p className="mt-2 text-body-md-secondary">

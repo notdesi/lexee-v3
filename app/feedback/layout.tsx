@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Share Feedback · Lexee",
+  title: "Help & Feedback · Lexee",
   description:
-    "Tell us how you're using Lexee, what's working, and what you wish it could do.",
+    "Ask about Lexee's capabilities, get help with something you're stuck on, or share feedback with the product team.",
 };
 
 export default function FeedbackLayout({

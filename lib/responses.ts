@@ -21,6 +21,9 @@ export const responses: Record<string, string> = {
 const DEFAULT_RESPONSE =
   "I don't have a canned answer for that yet — but in the real product I'd reason through it and reply. Try one of the suggested prompts.";
 
+export const GENERAL_CHAT_FIRST_GREETING =
+  "Hi — I'm Lexee. This chat isn't tied to a case yet. Ask me anything, or type @ to pull in case knowledge when you need it.";
+
 /**
  * Normalises a prompt for lookup: trims, lowercases, collapses whitespace,
  * and strips trailing punctuation that often differs between users.
@@ -49,4 +52,13 @@ export function getResponse(prompt: string): string {
   if (partial) return responses[partial];
 
   return DEFAULT_RESPONSE;
+}
+
+/** First reply in a general chat with no case context attached. */
+export function getGeneralChatFirstResponse(prompt: string): string {
+  const key = normalisePrompt(prompt);
+  if (key === "hi" || key === "hello" || key === "hey") {
+    return GENERAL_CHAT_FIRST_GREETING;
+  }
+  return getResponse(prompt);
 }

@@ -2,7 +2,7 @@
 
 > This file is generated from `app/globals.css` and class usage in `app/` + `components/`. Do not edit manually.
 
-- Generated at: `2026-08-31T09:43:12.891Z`
+- Generated at: `2026-08-31T12:32:23.436Z`
 - Regenerate: `npm run design:guidelines`
 
 ## Purpose
@@ -84,9 +84,9 @@
 - `--shadow-panel`: `0 8px 24px rgba(18, 18, 18, 0.12)`
 - `--shadow-popup`: `0 12px 28px rgba(40, 38, 64, 0.18)`
 - `--shadow-subtle`: `0 1px 2px rgba(18, 18, 18, 0.07)`
-- `--shadow-chatbox`: `0 1px 1px rgba(18, 18, 18, 0.03),
-      0 2px 6px rgba(18, 18, 18, 0.045),
-      0 8px 20px rgba(18, 18, 18, 0.06)`
+- `--shadow-chatbox`: `0 1px 1px rgba(18, 18, 18, 0.02),
+      0 2px 5px rgba(18, 18, 18, 0.028),
+      0 6px 18px rgba(18, 18, 18, 0.034)`
 
 ### Dark Mode: Semantic Tokens
 - `--background`: `#1f1f1e`
@@ -109,9 +109,9 @@
 - `--shadow-panel`: `0 14px 36px rgba(0, 0, 0, 0.5)`
 - `--shadow-popup`: `0 22px 50px rgba(0, 0, 0, 0.58)`
 - `--shadow-subtle`: `0 1px 4px rgba(0, 0, 0, 0.36)`
-- `--shadow-chatbox`: `0 1px 2px rgba(0, 0, 0, 0.22),
-      0 4px 12px rgba(0, 0, 0, 0.28),
-      0 12px 28px rgba(0, 0, 0, 0.2)`
+- `--shadow-chatbox`: `0 1px 2px rgba(0, 0, 0, 0.16),
+      0 4px 10px rgba(0, 0, 0, 0.14),
+      0 10px 22px rgba(0, 0, 0, 0.12)`
 
 ## Typography
 
@@ -171,91 +171,99 @@
 - Prefer these utilities first before introducing new spacing values.
 
 - `gap-0` (used 1x)
-- `gap-0.5` (used 6x)
-- `gap-1` (used 16x)
-- `gap-1.5` (used 8x)
+- `gap-0.5` (used 13x)
+- `gap-1` (used 20x)
+- `gap-1.5` (used 11x)
 - `gap-2` (used 42x)
 - `gap-2.5` (used 1x)
-- `gap-3` (used 22x)
-- `gap-4` (used 8x)
+- `gap-3` (used 31x)
+- `gap-4` (used 14x)
 - `gap-5` (used 1x)
-- `gap-6` (used 5x)
+- `gap-6` (used 7x)
 - `gap-10` (used 3x)
-- `gap-12` (used 3x)
-- `mb-1` (used 2x)
+- `gap-12` (used 1x)
 - `mb-1.5` (used 1x)
-- `mb-2` (used 6x)
+- `mb-2` (used 4x)
 - `mb-2.5` (used 1x)
 - `mb-4` (used 5x)
 - `mb-5` (used 1x)
 - `mr-0.5` (used 1x)
 - `mr-1` (used 1x)
 - `mt-0` (used 1x)
-- `mt-0.5` (used 15x)
-- `mt-1` (used 15x)
-- `mt-1.5` (used 10x)
-- `mt-2` (used 22x)
+- `mt-0.5` (used 12x)
+- `mt-1` (used 19x)
+- `mt-1.5` (used 19x)
+- `mt-2` (used 23x)
 - `mt-2.5` (used 4x)
-- `mt-3` (used 29x)
-- `mt-4` (used 8x)
+- `mt-3` (used 27x)
+- `mt-4` (used 10x)
 - `mt-5` (used 8x)
-- `mt-6` (used 1x)
-- `mt-8` (used 11x)
-- `mt-10` (used 4x)
+- `mt-6` (used 2x)
+- `mt-8` (used 9x)
+- `mt-10` (used 6x)
+- `mt-12` (used 2x)
 - `mx-2` (used 1x)
-- `my-1.5` (used 2x)
+- `my-1.5` (used 5x)
+- `my-2` (used 1x)
 - `my-5` (used 7x)
 - `p-1` (used 2x)
-- `p-1.5` (used 1x)
-- `p-2` (used 11x)
-- `p-3` (used 3x)
-- `p-4` (used 9x)
+- `p-1.5` (used 5x)
+- `p-2` (used 8x)
+- `p-3` (used 1x)
+- `p-4` (used 10x)
 - `p-5` (used 1x)
-- `pb-1` (used 3x)
+- `pb-1` (used 5x)
 - `pb-1.5` (used 1x)
 - `pb-2` (used 9x)
-- `pb-3` (used 1x)
-- `pb-4` (used 4x)
+- `pb-3` (used 3x)
+- `pb-4` (used 5x)
 - `pb-5` (used 2x)
+- `pb-6` (used 1x)
 - `pb-8` (used 5x)
-- `pb-16` (used 4x)
+- `pb-10` (used 1x)
+- `pb-16` (used 6x)
 - `pl-0` (used 1x)
-- `pl-4` (used 2x)
+- `pl-2` (used 1x)
+- `pl-4` (used 7x)
 - `pl-6` (used 6x)
 - `pr-0` (used 10x)
 - `pr-2` (used 6x)
 - `pr-3` (used 3x)
-- `pr-4` (used 31x)
-- `pr-6` (used 1x)
+- `pr-4` (used 30x)
+- `pr-6` (used 7x)
+- `pr-8` (used 1x)
 - `pt-1` (used 1x)
-- `pt-2` (used 16x)
+- `pt-2` (used 20x)
 - `pt-3` (used 3x)
-- `pt-4` (used 3x)
+- `pt-4` (used 6x)
 - `pt-5` (used 1x)
-- `pt-6` (used 1x)
+- `pt-6` (used 2x)
 - `pt-8` (used 3x)
-- `pt-10` (used 3x)
+- `pt-10` (used 1x)
+- `pt-16` (used 2x)
 - `px-0` (used 3x)
 - `px-1` (used 1x)
 - `px-1.5` (used 1x)
-- `px-2` (used 45x)
-- `px-2.5` (used 10x)
+- `px-2` (used 44x)
+- `px-2.5` (used 17x)
 - `px-3` (used 26x)
 - `px-3.5` (used 4x)
-- `px-4` (used 23x)
-- `px-5` (used 2x)
+- `px-4` (used 29x)
+- `px-5` (used 7x)
+- `px-6` (used 3x)
 - `px-8` (used 13x)
 - `py-0.5` (used 3x)
-- `py-1` (used 13x)
-- `py-1.5` (used 8x)
-- `py-2` (used 32x)
-- `py-2.5` (used 9x)
+- `py-1` (used 15x)
+- `py-1.5` (used 12x)
+- `py-2` (used 34x)
+- `py-2.5` (used 8x)
 - `py-3` (used 21x)
 - `py-3.5` (used 26x)
-- `py-4` (used 6x)
+- `py-4` (used 12x)
 - `py-5` (used 1x)
 - `py-6` (used 1x)
 - `py-8` (used 11x)
+- `py-12` (used 1x)
 - `space-y-1` (used 8x)
 - `space-y-3` (used 8x)
 

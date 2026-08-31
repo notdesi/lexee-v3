@@ -2,21 +2,19 @@
 
 import Image from "next/image";
 import {
-  ArrowUp,
-  Check,
-  ChevronDown,
   Copy,
   Download,
   FileText,
   Pencil,
   RotateCcw,
-  Search,
   Share2,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AnimatedPanel } from "@/components/AnimatedPanel";
-import { AnimatedPopover } from "@/components/AnimatedPopover";
+import { ChatBreadcrumb } from "@/components/ChatBreadcrumb";
+import { ChatComposerFooter } from "@/components/ChatComposerFooter";
+import { ChatDocumentsButton } from "@/components/ChatDocumentsButton";
 import { uiFadeSlide, uiMotionTransition } from "@/lib/ui-motion";
 import type { FormEvent, KeyboardEvent } from "react";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -26,6 +24,11 @@ import { DocumentPreviewPanel, type DocumentPreview } from "@/components/Documen
 import { VoiceListeningPanel } from "@/components/VoiceListeningPanel";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { createSampleDocumentPreview } from "@/lib/document-preview-names";
+import {
+  collectGeneratedDocuments,
+  createMedicalSummaryGeneratedDocument,
+  createSummonsGeneratedDocument,
+} from "@/lib/chat-generated-documents";
 import {
   GENERATION_PHASES,
   type GenerationProgress,
@@ -45,8 +48,9 @@ import {
   shouldShowSummonsDocumentDemo,
 } from "@/lib/skill-launches";
 import { buildLlmTurns, fetchLlmChatReply } from "@/lib/llm-chat-client";
-import { getResponse } from "@/lib/responses";
+import { getGeneralChatFirstResponse, getResponse } from "@/lib/responses";
 import {
+  HISTORY_CHAT_ENTRIES,
   isHistoryNavId,
   SHARED_HISTORY_CONVERSATION_ID,
 } from "@/lib/history-chat";
@@ -63,11 +67,6 @@ const MATTERS: { name: string; caseNumber: string }[] = [
 
 const DEFAULT_SELECTED_MATTER = MATTERS[0].name;
 
-function getMatterCaseNumber(matterName: string | null | undefined) {
-  if (!matterName) return null;
-  return MATTERS.find((matter) => matter.name === matterName)?.caseNumber ?? null;
-}
-
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -78,6 +77,7 @@ type ChatMessage = {
     | "summons_skill_cards"
     | "summons_additional_instructions"
     | "medical_summary_additional_instructions";
+  generatedDocument?: DocumentPreview;
 };
 
 type SummonsCategory = "MVA" | "Slip and Fall";
@@ -205,27 +205,27 @@ function MatterTextCrossfade({
   );
 }
 
+const HOME_CHAT_COMPOSER_CLASS =
+  "flex min-h-[120px] w-[620px] max-w-full flex-col rounded-[20px] border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-5 py-4 shadow-[var(--shadow-chatbox)] ui-t-layout";
+
+const DEFAULT_CHAT_TITLE = "New chat";
+
 function HomeInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const reduceMotion = useReducedMotion();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatTitle, setChatTitle] = useState(DEFAULT_CHAT_TITLE);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showThinkingGif, setShowThinkingGif] = useState(true);
-  const [selectedMatter, setSelectedMatter] = useState<string | null>(DEFAULT_SELECTED_MATTER);
-  const [matterMenuOpen, setMatterMenuOpen] = useState(false);
-  const [matterQuery, setMatterQuery] = useState("");
-  const [inlineMatterMenuOpen, setInlineMatterMenuOpen] = useState(false);
-  const [inlineMatterQuery, setInlineMatterQuery] = useState("");
+  const [selectedMatter, setSelectedMatter] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null);
   const [documentPreviewOpen, setDocumentPreviewOpen] = useState(false);
   const [documentCollection, setDocumentCollection] = useState<DocumentPreview[]>([]);
   const [documentActiveIndex, setDocumentActiveIndex] = useState(0);
   const [documentCollectionTitle, setDocumentCollectionTitle] = useState<string | undefined>(undefined);
   const [documentCollectionSubtitle, setDocumentCollectionSubtitle] = useState<string | undefined>(undefined);
-  const matterMenuRef = useRef<HTMLDivElement | null>(null);
-  const inlineMatterMenuRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const generationAbortRef = useRef<AbortController | null>(null);
@@ -294,64 +294,43 @@ function HomeInner() {
     target.style.height = `${target.scrollHeight}px`;
   };
 
-  const filteredMatters = useMemo(
-    () =>
-      MATTERS.filter((matter) => {
-        const query = matterQuery.trim().toLowerCase();
-        if (!query) return true;
-        return (
-          matter.name.toLowerCase().includes(query) ||
-          matter.caseNumber.toLowerCase().includes(query)
-        );
-      }),
-    [matterQuery],
-  );
-  const inlineFilteredMatters = useMemo(
-    () =>
-      MATTERS.filter((matter) => {
-        const query = inlineMatterQuery.trim().toLowerCase();
-        if (!query) return true;
-        return (
-          matter.name.toLowerCase().includes(query) ||
-          matter.caseNumber.toLowerCase().includes(query)
-        );
-      }),
-    [inlineMatterQuery],
-  );
-
-  const selectedMatterCaseNumber = getMatterCaseNumber(selectedMatter);
   const lastAssistantMessageIndex = useMemo(
     () => messages.reduce((latest, msg, idx) => (msg.role === "assistant" ? idx : latest), -1),
     [messages],
   );
+  const generatedDocuments = useMemo(() => collectGeneratedDocuments(messages), [messages]);
+  const isGeneratedDocumentsPanelOpen =
+    documentPreviewOpen && documentCollectionTitle === "Generated documents";
   const isLexeeEndSymbolVisible = (messageIndex: number) =>
     !isGenerating && messageIndex === lastAssistantMessageIndex;
 
-  useEffect(() => {
-    const resetChat = () => {
-      generationAbortRef.current?.abort();
-      generationAbortRef.current = null;
-      setMessage("");
-      setMessages([]);
-      setIsGenerating(false);
-      setGenerationProgress(null);
-      setSelectedMatter(DEFAULT_SELECTED_MATTER);
-      setMatterMenuOpen(false);
-      setMatterQuery("");
-      setInlineMatterMenuOpen(false);
-      setInlineMatterQuery("");
-      window.dispatchEvent(
-        new CustomEvent("lexee:active-conversation-changed", {
-          detail: { conversationId: null as string | null },
-        }),
-      );
-    };
+  const resetChat = useCallback(() => {
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
+    setMessage("");
+    setMessages([]);
+    setChatTitle(DEFAULT_CHAT_TITLE);
+    setIsGenerating(false);
+    setGenerationProgress(null);
+    setSelectedMatter(null);
+    setDocumentPreviewOpen(false);
+    setDocumentCollection([]);
+    setDocumentActiveIndex(0);
+    setDocumentCollectionTitle(undefined);
+    setDocumentCollectionSubtitle(undefined);
+    window.dispatchEvent(
+      new CustomEvent("lexee:active-conversation-changed", {
+        detail: { conversationId: null as string | null },
+      }),
+    );
+  }, []);
 
+  useEffect(() => {
     window.addEventListener("lexee:new-chat", resetChat);
     return () => {
       window.removeEventListener("lexee:new-chat", resetChat);
     };
-  }, []);
+  }, [resetChat]);
 
   useEffect(() => {
     const loadHistoryConversation = () => {
@@ -364,11 +343,11 @@ function HomeInner() {
       setMessages(conversation.messages);
       setIsGenerating(false);
       setGenerationProgress(null);
-      setSelectedMatter(conversation.matter ?? DEFAULT_SELECTED_MATTER);
-      setMatterMenuOpen(false);
-      setMatterQuery("");
-      setInlineMatterMenuOpen(false);
-      setInlineMatterQuery("");
+      setSelectedMatter(conversation.matter ?? null);
+      setChatTitle(
+        HISTORY_CHAT_ENTRIES.find((entry) => entry.id === SHARED_HISTORY_CONVERSATION_ID)?.label ??
+          DEFAULT_CHAT_TITLE,
+      );
       setDocumentPreviewOpen(false);
       setDocumentCollection([]);
       setDocumentActiveIndex(0);
@@ -480,23 +459,6 @@ function HomeInner() {
     };
   }, [searchParams, router]);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (matterMenuRef.current && !matterMenuRef.current.contains(target)) {
-        setMatterMenuOpen(false);
-      }
-      if (inlineMatterMenuRef.current && !inlineMatterMenuRef.current.contains(target)) {
-        setInlineMatterMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
   const messageCount = messages.length;
 
   useEffect(() => {
@@ -560,26 +522,35 @@ function HomeInner() {
     const useMedicalSummaryAdditionalInstructions = isMedicalSummaryRequestPrompt(trimmed);
     const useDevLlm = process.env.NEXT_PUBLIC_USE_LLM_CHAT === "true";
 
+    const isFirstTurn = messages.length === 0;
+    const hasCaseContext = selectedMatter !== null;
+
     let assistantReply: string;
     let presentation: ChatMessage["presentation"] | undefined;
+    let generatedDocument: DocumentPreview | undefined;
 
     if (useSummonsDocumentDemo) {
       assistantReply = "Here is your Summons document";
       presentation = "summons_document_demo";
+      generatedDocument = createSummonsGeneratedDocument(selectedMatter);
     } else if (useSummonsAdditionalInstructions) {
       assistantReply = SUMMONS_ADDITIONAL_INSTRUCTIONS_RESPONSE;
       presentation = "summons_additional_instructions";
     } else if (useMedicalSummaryDemo) {
       assistantReply = "";
       presentation = "medical_summary_demo";
+      generatedDocument = createMedicalSummaryGeneratedDocument();
     } else if (useMedicalSummaryAdditionalInstructions) {
       assistantReply = MEDICAL_SUMMARY_ADDITIONAL_INSTRUCTIONS_RESPONSE;
       presentation = "medical_summary_additional_instructions";
     } else {
-      const cannedMatterHi =
-        normalized === "hi" && selectedMatter
+      const cannedCaseHi =
+        isFirstTurn && hasCaseContext && normalized === "hi"
           ? `We are in the context of ${selectedMatter}. How can I help you?`
           : null;
+      const cannedGeneralFirst =
+        isFirstTurn && !hasCaseContext ? getGeneralChatFirstResponse(trimmed) : null;
+      const fallbackReply = cannedCaseHi ?? cannedGeneralFirst ?? getResponse(trimmed);
       presentation = undefined;
       if (useDevLlm) {
         try {
@@ -588,7 +559,7 @@ function HomeInner() {
             matter: selectedMatter,
             signal: ac.signal,
           });
-          assistantReply = llmText ?? cannedMatterHi ?? getResponse(trimmed);
+          assistantReply = llmText ?? fallbackReply;
         } catch {
           if (ac.signal.aborted) {
             setIsGenerating(false);
@@ -596,10 +567,10 @@ function HomeInner() {
             generationAbortRef.current = null;
             return;
           }
-          assistantReply = cannedMatterHi ?? getResponse(trimmed);
+          assistantReply = fallbackReply;
         }
       } else {
-        assistantReply = cannedMatterHi ?? getResponse(trimmed);
+        assistantReply = fallbackReply;
       }
     }
 
@@ -610,6 +581,7 @@ function HomeInner() {
         role: "assistant",
         content: assistantReply,
         ...(presentation ? { presentation } : {}),
+        ...(generatedDocument ? { generatedDocument } : {}),
       },
     ]);
     setIsGenerating(false);
@@ -696,6 +668,15 @@ function HomeInner() {
     setDocumentPreviewOpen(true);
   };
 
+  const openGeneratedDocumentsPanel = () => {
+    if (!generatedDocuments.length) return;
+    openDocumentPreview(
+      generatedDocuments,
+      "Generated documents",
+      `${generatedDocuments.length} document${generatedDocuments.length === 1 ? "" : "s"} in this chat`,
+    );
+  };
+
   const openMedicalSummaryCitationPreview = (
     ..._unused: Parameters<typeof openDocumentPreview>
   ) => {
@@ -707,118 +688,7 @@ function HomeInner() {
 
   return (
     <div className="flex h-[100dvh] min-h-0 w-full min-w-0 flex-1 flex-row overflow-hidden bg-[var(--background)]">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pl-4">
-        <div
-        ref={matterMenuRef}
-        className={[
-          "z-20 flex w-full shrink-0 justify-end bg-[var(--background)] ui-t-layout pr-4",
-          chatStarted ? "pb-3 pt-3" : "pb-8 pt-2",
-        ].join(" ")}
-      >
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setMatterMenuOpen((open) => !open)}
-            className="inline-flex min-w-0 max-w-[420px] items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-neutral-800 ui-t-colors hover:bg-violet-50 hover:text-neutral-950"
-            aria-label="Select matter"
-          >
-            <span className="min-w-0 flex-1 overflow-hidden text-left">
-              <MatterTextCrossfade
-                display="block"
-                text={selectedMatter ?? "No matter selected"}
-                className="text-body-md"
-              />
-              {selectedMatterCaseNumber ? (
-                <span className="mt-0.5 block truncate text-[12px] leading-4 text-neutral-500">
-                  {selectedMatterCaseNumber}
-                </span>
-              ) : null}
-            </span>
-            <ChevronDown
-              className={[
-                "h-4 w-4 shrink-0 text-neutral-700 ui-t-transform",
-                matterMenuOpen ? "rotate-180" : "",
-              ].join(" ")}
-              strokeWidth={1.75}
-            />
-          </button>
-
-          <AnimatedPopover
-            open={matterMenuOpen}
-            className="absolute right-0 mt-2 w-[420px] rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]"
-          >
-              <div className="mb-2 flex items-center gap-2 rounded-lg border border-[color:var(--chat-outline)] bg-neutral-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
-                <Search className="h-4 w-4 text-neutral-500" strokeWidth={1.75} />
-                <input
-                  type="text"
-                  value={matterQuery}
-                  onChange={(event) => setMatterQuery(event.target.value)}
-                  placeholder="Search matters"
-                  className="w-full bg-transparent text-body-md text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="max-h-56 overflow-y-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedMatter(null);
-                    setMatterMenuOpen(false);
-                    setMatterQuery("");
-                  }}
-                  className={[
-                    "mb-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-body-md-secondary",
-                    selectedMatter === null
-                      ? "bg-violet-100 text-neutral-950"
-                      : "text-neutral-700 hover:bg-violet-50 hover:text-neutral-950",
-                  ].join(" ")}
-                >
-                  <span className="truncate">No matter</span>
-                  {selectedMatter === null ? (
-                    <Check className="ml-auto h-4 w-4 shrink-0 text-neutral-700" strokeWidth={2} />
-                  ) : null}
-                </button>
-
-                {filteredMatters.length > 0 ? (
-                  filteredMatters.map((matter) => (
-                    <button
-                      key={matter.name}
-                      type="button"
-                      onClick={() => {
-                        setSelectedMatter(matter.name);
-                        setMatterMenuOpen(false);
-                        setMatterQuery("");
-                      }}
-                      className={[
-                        "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left",
-                        selectedMatter === matter.name
-                          ? "bg-violet-100 text-neutral-950"
-                          : "text-neutral-700 hover:bg-violet-50 hover:text-neutral-950",
-                      ].join(" ")}
-                    >
-                      <span className="min-w-0 flex-1 overflow-hidden">
-                        <span className="block truncate text-body-md-secondary">
-                          {matter.name}
-                        </span>
-                        <span className="mt-0.5 block truncate text-[12px] leading-4 text-neutral-500">
-                          {matter.caseNumber}
-                        </span>
-                      </span>
-                      {selectedMatter === matter.name ? (
-                        <Check className="ml-auto h-4 w-4 shrink-0 text-neutral-700" strokeWidth={2} />
-                      ) : null}
-                    </button>
-                  ))
-                ) : (
-                  <p className="px-2 py-2 text-[12px] leading-4 text-neutral-600">
-                    No matters found.
-                  </p>
-                )}
-              </div>
-          </AnimatedPopover>
-        </div>
-        </div>
-
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pl-4 pr-6">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <AnimatePresence mode="wait" initial={false}>
       {!chatStarted ? (
@@ -829,7 +699,7 @@ function HomeInner() {
           className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto"
         >
         <div className="mx-auto w-full max-w-3xl pb-16">
-          <div className="flex flex-col items-center gap-12 px-0">
+          <div className="flex flex-col items-center gap-[38.4px] px-0">
             <div className="flex items-center justify-center gap-3">
               <Image
                 src="/lexee-symbol.svg"
@@ -838,39 +708,13 @@ function HomeInner() {
                 height={32}
                 priority
               />
-              <h1 className="select-none font-tiempos-text text-[32px] leading-none tracking-[-0.015em] text-neutral-950">
-                Good Evening Matt!
+              <h1 className="select-none font-tiempos-text text-[36px] leading-none tracking-[-0.015em] text-neutral-950">
+                Good Evening, Matt
               </h1>
             </div>
 
-            <div className="flex w-full max-w-2xl flex-col">
-              <AnimatePresence initial={false}>
-                {selectedMatter ? (
-                  <motion.div
-                    key="matter-strip-empty-state"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={uiMotionTransition(reduceMotion, 0.2)}
-                    className="rounded-t-2xl bg-violet-50 px-3 py-2"
-                  >
-                    <p className="flex flex-wrap items-baseline gap-x-1 text-[12px] leading-4 text-neutral-800">
-                      <span>Matter selected:</span>
-                      <MatterTextCrossfade
-                        text={selectedMatter}
-                        className="text-neutral-950"
-                      />
-                    </p>
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-
-              <div
-                className={[
-                  "rounded-2xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-chatbox)] ui-t-layout",
-                  selectedMatter ? "rounded-b-2xl rounded-t-none border-t-0" : "",
-                ].join(" ")}
-              >
+            <div className="flex w-full flex-col items-center">
+              <div className={HOME_CHAT_COMPOSER_CLASS}>
                 {isVoiceMode ? (
                   <VoiceListeningPanel
                     transcript={voiceTranscript}
@@ -892,115 +736,18 @@ function HomeInner() {
                       value={message}
                       onChange={(event) => setMessage(event.target.value)}
                       placeholder="Type @ for case knowledge context"
-                      className="w-full resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
+                      className="min-h-[48px] w-full flex-1 resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
                     />
 
-                    <div className="mt-1.5 flex items-center justify-end">
-                      <button
-                        type="button"
-                        aria-label="Send message"
-                        onClick={() => {
-                          void sendMessage();
-                        }}
-                        disabled={isSendDisabled}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--button-primary-bg)] text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--button-primary-disabled-bg)] disabled:text-[var(--button-primary-disabled-fg)] disabled:hover:bg-[var(--button-primary-disabled-bg)]"
-                      >
-                        <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2} />
-                      </button>
-                    </div>
+                    <ChatComposerFooter
+                      onSend={() => {
+                        void sendMessage();
+                      }}
+                      sendDisabled={isSendDisabled}
+                    />
                   </>
                 )}
               </div>
-
-              <p className="mt-2 text-center text-caption select-none">
-                Lexee is AI and can make mistakes. Please double-check responses.
-              </p>
-
-              {!selectedMatter ? (
-                <div className="mt-8 rounded-xl border border-[color:var(--chat-outline-accent)] bg-violet-50/70 p-3 shadow-[var(--shadow-card)]">
-                  <p className="text-[12px] leading-4 text-neutral-700">
-                    Search and select a matter here, or prompt directly in chat and we will infer the matter context.
-                  </p>
-
-                  <div className="relative mt-2" ref={inlineMatterMenuRef}>
-                    <div className="flex items-center gap-2 rounded-lg border border-[color:var(--chat-outline)] bg-neutral-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
-                      <Search className="h-4 w-4 text-neutral-500" strokeWidth={1.75} />
-                      <input
-                        type="text"
-                        value={inlineMatterQuery}
-                        onChange={(event) => {
-                          setInlineMatterQuery(event.target.value);
-                          setInlineMatterMenuOpen(true);
-                        }}
-                        onFocus={() => setInlineMatterMenuOpen(true)}
-                        placeholder="Search and select matter"
-                        className="w-full bg-transparent text-body-md text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <AnimatedPopover
-                      open={inlineMatterMenuOpen}
-                      className="absolute bottom-full left-0 z-30 mb-2 w-full rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]"
-                    >
-                        <div className="max-h-48 overflow-y-auto">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedMatter(null);
-                              setInlineMatterQuery("");
-                              setInlineMatterMenuOpen(false);
-                            }}
-                            className={[
-                              "mb-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-body-md-secondary",
-                              selectedMatter === null
-                                ? "bg-violet-100 text-neutral-950"
-                                : "text-neutral-700 hover:bg-violet-50 hover:text-neutral-950",
-                            ].join(" ")}
-                          >
-                            <span className="truncate">No matter</span>
-                            {selectedMatter === null ? (
-                              <Check className="ml-auto h-4 w-4 shrink-0 text-neutral-700" strokeWidth={2} />
-                            ) : null}
-                          </button>
-
-                          {inlineFilteredMatters.length > 0 ? (
-                            inlineFilteredMatters.map((matter) => (
-                              <button
-                                key={matter.name}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedMatter(matter.name);
-                                  setInlineMatterQuery("");
-                                  setInlineMatterMenuOpen(false);
-                                }}
-                                className={[
-                                  "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left",
-                                  selectedMatter === matter.name
-                                    ? "bg-violet-100 text-neutral-950"
-                                    : "text-neutral-700 hover:bg-violet-50 hover:text-neutral-950",
-                                ].join(" ")}
-                              >
-                                <span className="min-w-0 flex-1 overflow-hidden">
-                                  <span className="block truncate text-body-md-secondary">
-                                    {matter.name}
-                                  </span>
-                                  <span className="mt-0.5 block truncate text-[12px] leading-4 text-neutral-500">
-                                    {matter.caseNumber}
-                                  </span>
-                                </span>
-                                {selectedMatter === matter.name ? (
-                                  <Check className="ml-auto h-4 w-4 shrink-0 text-neutral-700" strokeWidth={2} />
-                                ) : null}
-                              </button>
-                            ))
-                          ) : (
-                            <p className="px-2 py-2 text-[12px] leading-4 text-neutral-600">No matters found.</p>
-                          )}
-                        </div>
-                    </AnimatedPopover>
-                  </div>
-                </div>
-              ) : null}
             </div>
           </div>
         </div>
@@ -1012,6 +759,30 @@ function HomeInner() {
           transition={uiMotionTransition(reduceMotion, 0.34)}
           className="flex min-h-0 w-full min-w-0 flex-1 flex-col"
         >
+          <div className="sticky top-0 z-20 shrink-0 bg-[var(--background)] pt-2 pb-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <ChatBreadcrumb
+                  title={chatTitle}
+                  onTitleChange={setChatTitle}
+                  onMarkUnread={() => {
+                    // Prototype: wire unread state when inbox/history sync exists.
+                  }}
+                  onAddToCase={() => {
+                    // Prototype: replace with case picker when Cases is built.
+                    window.prompt("Add to case", "");
+                  }}
+                  onDelete={resetChat}
+                />
+              </div>
+              <ChatDocumentsButton
+                count={generatedDocuments.length}
+                onClick={openGeneratedDocumentsPanel}
+                active={isGeneratedDocumentsPanelOpen}
+              />
+            </div>
+          </div>
+
           <motion.div
             className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
             initial={reduceMotion ? { opacity: 0 } : { opacity: 0 }}
@@ -1021,7 +792,7 @@ function HomeInner() {
               delay: reduceMotion ? 0 : 0.06,
             }}
           >
-          <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-col gap-3 px-4 pb-4 pt-10">
+          <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-col gap-3 px-4 pb-4 pt-4">
             {messages.map((chatMessage, messageIndex) =>
                 chatMessage.role === "user" ? (
                   <div key={chatMessage.id} className="group ml-auto max-w-[80%]">
@@ -1299,34 +1070,8 @@ function HomeInner() {
               delay: reduceMotion ? 0 : 0.1,
             }}
           >
-            <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-col">
-            <AnimatePresence initial={false}>
-              {selectedMatter ? (
-                <motion.div
-                  key="matter-strip-chat"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={uiMotionTransition(reduceMotion, 0.2)}
-                  className="rounded-t-2xl bg-violet-50 px-3 py-2"
-                >
-                  <p className="flex flex-wrap items-baseline gap-x-1 text-[12px] leading-4 text-neutral-800">
-                    <span>Matter selected:</span>
-                    <MatterTextCrossfade
-                      text={selectedMatter}
-                      className="text-neutral-950"
-                    />
-                  </p>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-
-            <div
-              className={[
-                "rounded-2xl border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-3 py-2.5 shadow-[var(--shadow-chatbox)] ui-t-layout",
-                selectedMatter ? "rounded-b-2xl rounded-t-none border-t-0" : "",
-              ].join(" ")}
-            >
+            <div className="mx-auto flex w-[620px] max-w-full min-w-0 flex-col">
+            <div className={HOME_CHAT_COMPOSER_CLASS}>
               {isVoiceMode ? (
                 <VoiceListeningPanel
                   transcript={voiceTranscript}
@@ -1348,22 +1093,15 @@ function HomeInner() {
                     value={message}
                     onChange={(event) => setMessage(event.target.value)}
                     placeholder="Type @ for case knowledge context"
-                    className="w-full resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
+                    className="min-h-[48px] w-full flex-1 resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
                   />
 
-                  <div className="mt-1.5 flex items-center justify-end">
-                    <button
-                      type="button"
-                      aria-label="Send message"
-                      onClick={() => {
-                        void sendMessage();
-                      }}
-                      disabled={isSendDisabled}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--button-primary-bg)] text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[var(--button-primary-disabled-bg)] disabled:text-[var(--button-primary-disabled-fg)] disabled:hover:bg-[var(--button-primary-disabled-bg)]"
-                    >
-                      <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2} />
-                    </button>
-                  </div>
+                  <ChatComposerFooter
+                    onSend={() => {
+                      void sendMessage();
+                    }}
+                    sendDisabled={isSendDisabled}
+                  />
                 </>
               )}
             </div>

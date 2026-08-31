@@ -3,6 +3,9 @@ export const SHARED_HISTORY_CONVERSATION_ID = "medical-summary-demo";
 
 export const HISTORY_CHAT_ENTRIES: { id: string; label: string }[] = [
   { id: "medical-summary-demo", label: "Create Medical summary" },
+  { id: "cloudlex-workflow", label: "CloudLex intake workflow" },
+  { id: "retainer-review", label: "Retainer draft review" },
+  { id: "deadline-rules", label: "Deadline rules overview" },
 ];
 
 const HISTORY_NAV_IDS = new Set(HISTORY_CHAT_ENTRIES.map((entry) => entry.id));

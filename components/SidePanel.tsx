@@ -177,10 +177,16 @@ export function SidePanel() {
 
   const reduceMotion = useReducedMotion();
 
+  const sidebarNavItemTextClass =
+    "font-inter text-[13px] font-normal leading-5 text-neutral-700";
+
   const recentMenuItemClass =
     "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left font-inter text-[14px] font-normal leading-5 text-neutral-950 ui-t-colors hover:bg-neutral-100";
 
-  const primaryNavItems: SidePanelItem[] = [
+  /** Temporarily hide Help & Feedback nav — set to `true` to restore. */
+  const SHOW_HELP_AND_FEEDBACK = false;
+
+  const primaryNavItemsAll: SidePanelItem[] = [
       {
         key: "new-chat",
         label: "New chat",
@@ -251,6 +257,10 @@ export function SidePanel() {
       },
   ];
 
+  const primaryNavItems = SHOW_HELP_AND_FEEDBACK
+    ? primaryNavItemsAll
+    : primaryNavItemsAll.filter((item) => item.key !== "share-feedback");
+
   /**
    * One primary nav row highlighted at a time. When a history thread is open on `/`,
    * no primary item is active — the nested history row shows selection instead.
@@ -288,6 +298,7 @@ export function SidePanel() {
           className={[
             "group mx-2 flex w-[calc(100%-16px)] items-center rounded-[6px] ui-t-colors",
             "text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950",
+            collapsed ? "justify-center" : "",
             isActive ? "bg-neutral-200 text-neutral-950" : "",
           ].join(" ")}
         >
@@ -301,15 +312,19 @@ export function SidePanel() {
               }
               item.onClick?.();
             }}
-            className="flex min-w-0 flex-1 items-center gap-2 px-[10px] py-[6px] text-left text-inherit hover:text-inherit focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-violet-300"
+            className={[
+              "flex min-w-0 flex-1 items-center text-inherit hover:text-inherit focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-violet-300",
+              collapsed
+                ? "justify-center gap-0 px-0 py-[6px]"
+                : "gap-2 px-[10px] py-[6px] text-left",
+            ].join(" ")}
           >
             {Icon ? (
               <span
                 className={[
-                  "flex h-5 w-5 shrink-0 items-center justify-center",
-                  isNewChat
-                    ? "h-6 w-6 rounded-full bg-neutral-300 text-neutral-950"
-                    : "",
+                  "flex shrink-0 items-center justify-center",
+                  isHistory ? "h-5 w-5" : "h-6 w-6",
+                  isNewChat ? "rounded-full bg-neutral-300 text-neutral-950" : "",
                 ].join(" ")}
               >
                 <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
@@ -321,7 +336,7 @@ export function SidePanel() {
                 "min-w-0 truncate transition-[opacity,max-width] duration-200 ease-out motion-reduce:transition-none",
                 isHistory
                   ? "text-[12px] leading-4"
-                  : "text-body-md-secondary leading-[20px]",
+                  : sidebarNavItemTextClass,
                 collapsed
                   ? "max-w-0 overflow-hidden opacity-0"
                   : "max-w-[200px] opacity-100",
@@ -365,7 +380,8 @@ export function SidePanel() {
                 >
                   <div
                     className={[
-                      "group flex w-full items-center gap-0.5 rounded-[6px] font-inter text-[14px] leading-[22px] ui-t-colors",
+                      "group flex w-full items-center gap-0.5 rounded-[6px] ui-t-colors",
+                      sidebarNavItemTextClass,
                       entryActive
                         ? "bg-neutral-200 text-neutral-950"
                         : "text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900",
@@ -534,7 +550,7 @@ export function SidePanel() {
         </div>
 
         <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden py-2">
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-0.5">
             {primaryNavItems.map((item) => renderSidebarNavRow(item))}
           </div>
         </nav>

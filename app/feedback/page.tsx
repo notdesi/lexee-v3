@@ -171,7 +171,7 @@ function FeedbackHistoryDropdown({
   const [query, setQuery] = useState("");
   const menuRef = useRef<HTMLDivElement | null>(null);
   const activeConversation = conversations.find((conversation) => conversation.id === activeId);
-  const triggerLabel = activeConversation?.title ?? "New conversation";
+  const triggerLabel = activeConversation?.title ?? "New chat";
 
   const filteredConversations = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -233,7 +233,7 @@ function FeedbackHistoryDropdown({
         open={open}
         className="absolute left-0 z-50 mt-2 w-[320px] rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]"
       >
-        <div className="mb-2 flex items-center gap-2 rounded-lg border border-[color:var(--chat-outline-accent)] bg-violet-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
+        <div className="mb-2 flex items-center gap-2 rounded-lg border border-[color:var(--chat-outline)] bg-neutral-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
           <Search className="h-4 w-4 shrink-0 text-neutral-500" strokeWidth={1.75} />
           <input
             type="text"
@@ -259,7 +259,7 @@ function FeedbackHistoryDropdown({
           ].join(" ")}
         >
           <Plus className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-          <span className="min-w-0 flex-1 truncate">New conversation</span>
+          <span className="min-w-0 flex-1 truncate">New chat</span>
           {activeId === null ? (
             <Check className="ml-auto h-4 w-4 shrink-0 text-neutral-700" strokeWidth={2} />
           ) : null}

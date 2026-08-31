@@ -2,7 +2,7 @@
 
 > This file is generated from `app/globals.css` and class usage in `app/` + `components/`. Do not edit manually.
 
-- Generated at: `2026-08-27T09:44:49.425Z`
+- Generated at: `2026-08-31T09:43:12.891Z`
 - Regenerate: `npm run design:guidelines`
 
 ## Purpose
@@ -170,6 +170,7 @@
 - The list below is extracted from existing class usage and represents the current spacing vocabulary for this codebase.
 - Prefer these utilities first before introducing new spacing values.
 
+- `gap-0` (used 1x)
 - `gap-0.5` (used 6x)
 - `gap-1` (used 16x)
 - `gap-1.5` (used 8x)
@@ -234,7 +235,7 @@
 - `pt-6` (used 1x)
 - `pt-8` (used 3x)
 - `pt-10` (used 3x)
-- `px-0` (used 2x)
+- `px-0` (used 3x)
 - `px-1` (used 1x)
 - `px-1.5` (used 1x)
 - `px-2` (used 45x)

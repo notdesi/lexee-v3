@@ -747,7 +747,7 @@ function HomeInner() {
             open={matterMenuOpen}
             className="absolute right-0 mt-2 w-[420px] rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-2 shadow-[var(--shadow-popup)]"
           >
-              <div className="mb-2 flex items-center gap-2 rounded-lg border border-[color:var(--chat-outline-accent)] bg-violet-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
+              <div className="mb-2 flex items-center gap-2 rounded-lg border border-[color:var(--chat-outline)] bg-neutral-50 px-2 py-2 focus-within:ring-2 focus-within:ring-violet-300/70">
                 <Search className="h-4 w-4 text-neutral-500" strokeWidth={1.75} />
                 <input
                   type="text"

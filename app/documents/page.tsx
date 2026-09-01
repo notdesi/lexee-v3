@@ -3,14 +3,18 @@
 import { Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatedPanel } from "@/components/AnimatedPanel";
+import { CaseFilterDropdown } from "@/components/CaseFilterDropdown";
 import { DocumentFormatBadge } from "@/components/DocumentFormatBadge";
 import { DocumentPreviewPanel, type DocumentPreview } from "@/components/DocumentPreviewPanel";
 import { SegmentPillNav } from "@/components/SegmentPillNav";
+import { getCaseById } from "@/lib/cases";
 import {
   DOCUMENTS,
   countDocumentsByStatus,
+  documentMatchesCaseFilter,
   documentRecordToPreview,
   formatDocumentActivity,
+  type DocumentCaseFilter,
   type DocumentRecord,
   type DocumentStatus,
 } from "@/lib/documents";
@@ -34,6 +38,7 @@ export default function DocumentsPage() {
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(true);
   const [status, setStatus] = useState<DocumentStatus>("awaiting-review");
+  const [caseFilter, setCaseFilter] = useState<DocumentCaseFilter>("all");
   const [documentPreviewOpen, setDocumentPreviewOpen] = useState(false);
   const [documentCollection, setDocumentCollection] = useState<DocumentPreview[]>([]);
   const [documentActiveIndex, setDocumentActiveIndex] = useState(0);
@@ -70,13 +75,21 @@ export default function DocumentsPage() {
     const normalized = query.trim().toLowerCase();
     return DOCUMENTS.filter((document) => {
       if (document.status !== status) return false;
+      if (!documentMatchesCaseFilter(document, caseFilter)) return false;
       if (!normalized) return true;
       return (
         document.name.toLowerCase().includes(normalized) ||
         document.format.toLowerCase().includes(normalized)
       );
     });
-  }, [query, status]);
+  }, [query, status, caseFilter]);
+
+  const emptyCopy = useMemo(() => {
+    const base = EMPTY_STATUS_COPY[status].replace(/\.$/, "");
+    if (caseFilter === "all") return `${base}.`;
+    if (caseFilter === "unassigned") return `${base} without a case.`;
+    return `${base} for ${getCaseById(caseFilter)?.name ?? "this case"}.`;
+  }, [caseFilter, status]);
 
   const openDocument = useCallback((document: DocumentRecord) => {
     setSelectedDocumentId(document.id);
@@ -142,12 +155,17 @@ export default function DocumentsPage() {
             </div>
           </div>
 
-          <div className="mt-8">
+          <div className="mt-8 flex items-center justify-between gap-4">
             <SegmentPillNav
               options={statusOptions}
               value={status}
               onChange={setStatus}
               ariaLabel="Document status"
+            />
+            <CaseFilterDropdown
+              value={caseFilter}
+              onChange={setCaseFilter}
+              status={status}
             />
           </div>
 
@@ -177,7 +195,7 @@ export default function DocumentsPage() {
               </ul>
             ) : (
               <div className="flex min-h-[240px] items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-neutral-50/60 px-6 py-12 text-center">
-                <p className="text-body-md-secondary">{EMPTY_STATUS_COPY[status]}</p>
+                <p className="text-body-md-secondary">{emptyCopy}</p>
               </div>
             )}
           </div>

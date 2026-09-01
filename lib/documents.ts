@@ -1,4 +1,5 @@
 import type { DocumentPreview } from "@/components/DocumentPreviewPanel";
+import type { CaseRecord } from "@/lib/cases";
 import { createSampleDocumentPreview } from "@/lib/document-preview-names";
 
 export type DocumentStatus = "awaiting-review" | "approved" | "rejected" | "superseded";
@@ -9,7 +10,11 @@ export type DocumentRecord = {
   format: string;
   status: DocumentStatus;
   updatedAt: string;
+  /** Null for documents that have not been filed under a case yet. */
+  caseId: CaseRecord["id"] | null;
 };
+
+export type DocumentCaseFilter = "all" | "unassigned" | CaseRecord["id"];
 
 export const DOCUMENTS: DocumentRecord[] = [
   {
@@ -18,6 +23,7 @@ export const DOCUMENTS: DocumentRecord[] = [
     format: "PDF",
     status: "awaiting-review",
     updatedAt: "2026-08-31T10:00:00Z",
+    caseId: "matter-1",
   },
   {
     id: "doc-2",
@@ -25,6 +31,7 @@ export const DOCUMENTS: DocumentRecord[] = [
     format: "PDF",
     status: "awaiting-review",
     updatedAt: "2026-08-30T16:30:00Z",
+    caseId: "matter-1",
   },
   {
     id: "doc-3",
@@ -32,6 +39,7 @@ export const DOCUMENTS: DocumentRecord[] = [
     format: "DOCX",
     status: "awaiting-review",
     updatedAt: "2026-08-29T09:15:00Z",
+    caseId: "matter-2",
   },
   {
     id: "doc-4",
@@ -39,6 +47,7 @@ export const DOCUMENTS: DocumentRecord[] = [
     format: "PDF",
     status: "awaiting-review",
     updatedAt: "2026-08-28T14:00:00Z",
+    caseId: "intake-1",
   },
   {
     id: "doc-5",
@@ -46,6 +55,7 @@ export const DOCUMENTS: DocumentRecord[] = [
     format: "PDF",
     status: "approved",
     updatedAt: "2026-08-27T11:00:00Z",
+    caseId: "matter-1",
   },
   {
     id: "doc-6",
@@ -53,6 +63,7 @@ export const DOCUMENTS: DocumentRecord[] = [
     format: "PDF",
     status: "approved",
     updatedAt: "2026-08-26T08:45:00Z",
+    caseId: "matter-1",
   },
   {
     id: "doc-7",
@@ -60,6 +71,7 @@ export const DOCUMENTS: DocumentRecord[] = [
     format: "PDF",
     status: "approved",
     updatedAt: "2026-08-25T13:20:00Z",
+    caseId: "matter-2",
   },
   {
     id: "doc-8",
@@ -67,6 +79,7 @@ export const DOCUMENTS: DocumentRecord[] = [
     format: "DOCX",
     status: "rejected",
     updatedAt: "2026-08-24T10:00:00Z",
+    caseId: "matter-1",
   },
   {
     id: "doc-9",
@@ -74,6 +87,7 @@ export const DOCUMENTS: DocumentRecord[] = [
     format: "PDF",
     status: "rejected",
     updatedAt: "2026-08-22T15:30:00Z",
+    caseId: "matter-2",
   },
   {
     id: "doc-10",
@@ -81,6 +95,7 @@ export const DOCUMENTS: DocumentRecord[] = [
     format: "DOCX",
     status: "superseded",
     updatedAt: "2026-08-20T09:00:00Z",
+    caseId: "matter-2",
   },
   {
     id: "doc-11",
@@ -88,6 +103,7 @@ export const DOCUMENTS: DocumentRecord[] = [
     format: "DOCX",
     status: "superseded",
     updatedAt: "2026-08-18T12:00:00Z",
+    caseId: null,
   },
 ];
 
@@ -106,6 +122,35 @@ export function countDocumentsByStatus(
       superseded: 0,
     } satisfies Record<DocumentStatus, number>,
   );
+}
+
+/**
+ * Counts documents per case, plus the `all` and `unassigned` buckets the case
+ * filter needs. Pass a status to scope the counts to one status tab.
+ */
+export function countDocumentsByCase(
+  documents: readonly DocumentRecord[],
+  status?: DocumentStatus,
+): Record<DocumentCaseFilter, number> {
+  const scoped = status ? documents.filter((document) => document.status === status) : documents;
+
+  return scoped.reduce<Record<DocumentCaseFilter, number>>(
+    (counts, document) => {
+      const key = document.caseId ?? "unassigned";
+      counts[key] = (counts[key] ?? 0) + 1;
+      return counts;
+    },
+    { all: scoped.length, unassigned: 0 },
+  );
+}
+
+export function documentMatchesCaseFilter(
+  document: DocumentRecord,
+  filter: DocumentCaseFilter,
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "unassigned") return document.caseId === null;
+  return document.caseId === filter;
 }
 
 export function documentRecordToPreview(record: DocumentRecord): DocumentPreview {

@@ -11,6 +11,7 @@ import { CaseChatBreadcrumb } from "@/components/CaseChatBreadcrumb";
 import { ChatComposerInput } from "@/components/ChatComposerInput";
 import { ChatDocumentsButton } from "@/components/ChatDocumentsButton";
 import { ChatJobsButton } from "@/components/ChatJobsButton";
+import { ChatTaskDemoCard } from "@/components/ChatTaskDemoCard";
 import { JobsPanel } from "@/components/JobsPanel";
 import { DocumentPreviewPanel, type DocumentPreview } from "@/components/DocumentPreviewPanel";
 import { LexeeResponseEndSymbol } from "@/components/LexeeResponseEndSymbol";
@@ -27,6 +28,13 @@ import {
 import { GENERATION_PHASES, type GenerationProgress, runGenerationPhases } from "@/lib/generation-phases";
 import { caseRefFromCaseRecord, jobTitleFromPrompt } from "@/lib/jobs";
 import { resolvePrototypeAssistantReply } from "@/lib/prototype-chat-reply";
+import { resolveScriptedDemoReply } from "@/lib/scripted-chat-demo";
+import {
+  isTaskCreationComposerTrigger,
+  TASK_DEMO_PROMPT,
+  type ComposerMode,
+} from "@/lib/task-launches";
+import type { Skill } from "@/app/skills/skills-data";
 import { uiMotionTransition } from "@/lib/ui-motion";
 
 const HOME_CHAT_COMPOSER_CLASS =
@@ -55,6 +63,8 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
   const messages = sessionChat?.messages ?? staticMessages;
 
   const [message, setMessage] = useState("");
+  const [composerMode, setComposerMode] = useState<ComposerMode | null>(null);
+  const [composerSkill, setComposerSkill] = useState<Skill | null>(null);
   const [chatTitle, setChatTitle] = useState(chatMeta?.title ?? "Untitled");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null);
@@ -159,7 +169,10 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
   }, [generatedDocuments, openDocumentPreview]);
 
   const runAssistantTurn = useCallback(
-    async (messagesIncludingLatestUser: CaseChatMessage[]) => {
+    async (
+      messagesIncludingLatestUser: CaseChatMessage[],
+      composerContext?: { mode: ComposerMode | null; skillId: string | null },
+    ) => {
       if (!caseRecord) return;
       const trimmed =
         messagesIncludingLatestUser[messagesIncludingLatestUser.length - 1]?.content ?? "";
@@ -197,22 +210,51 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
       }
 
       let assistantReply: string;
-      try {
-        assistantReply = await resolvePrototypeAssistantReply({
-          messages: contextMessages,
-          trimmed,
-          matterName: caseRecord.name,
-          signal: ac.signal,
-        });
-      } catch {
-        if (ac.signal.aborted) {
-          chatJobs.cancelJob(jobId);
-          setIsGenerating(false);
-          setGenerationProgress(null);
-          generationAbortRef.current = null;
-          return;
+      let presentation: string | undefined;
+      let generatedTask: CaseChatMessage["generatedTask"];
+
+      const latestAssistantMessage = [...messagesIncludingLatestUser]
+        .slice(0, -1)
+        .reverse()
+        .find((msg) => msg.role === "assistant");
+
+      const latestUser = messagesIncludingLatestUser[messagesIncludingLatestUser.length - 1];
+      const resolvedComposerMode =
+        composerContext?.mode ?? latestUser?.composerMode ?? composerMode ?? null;
+      const resolvedSkillId =
+        composerContext?.skillId ?? latestUser?.skillId ?? composerSkill?.id ?? null;
+
+      const demoReply = resolveScriptedDemoReply({
+        trimmed,
+        messages: messagesIncludingLatestUser.slice(0, -1),
+        latestAssistantPresentation: latestAssistantMessage?.presentation,
+        matterName: caseRecord.name,
+        composerMode: resolvedComposerMode,
+        skillId: resolvedSkillId,
+      });
+
+      if (demoReply) {
+        assistantReply = demoReply.content;
+        presentation = demoReply.presentation;
+        generatedTask = demoReply.generatedTask;
+      } else {
+        try {
+          assistantReply = await resolvePrototypeAssistantReply({
+            messages: contextMessages,
+            trimmed,
+            matterName: caseRecord.name,
+            signal: ac.signal,
+          });
+        } catch {
+          if (ac.signal.aborted) {
+            chatJobs.cancelJob(jobId);
+            setIsGenerating(false);
+            setGenerationProgress(null);
+            generationAbortRef.current = null;
+            return;
+          }
+          assistantReply = "Something went wrong while generating a reply. Please try again.";
         }
-        assistantReply = "Something went wrong while generating a reply. Please try again.";
       }
 
       persistMessages([
@@ -221,6 +263,8 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
           id: `${Date.now()}-assistant`,
           role: "assistant",
           content: assistantReply,
+          ...(presentation ? { presentation } : {}),
+          ...(generatedTask ? { generatedTask } : {}),
         },
       ]);
       chatJobs.completeJob(jobId);
@@ -228,7 +272,7 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
       setGenerationProgress(null);
       generationAbortRef.current = null;
     },
-    [caseRecord, persistMessages, chatJobs],
+    [caseRecord, persistMessages, chatJobs, composerMode, composerSkill],
   );
 
   useEffect(() => {
@@ -241,6 +285,17 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
     repliedForChatRef.current = chatId;
     void runAssistantTurn(sessionChat.messages);
   }, [chatId, isSessionChat, sessionChat, runAssistantTurn]);
+
+  const markTaskSynced = useCallback(
+    (messageId: string) => {
+      persistMessages(
+        messages.map((entry) =>
+          entry.id === messageId ? { ...entry, cloudLexSynced: true } : entry,
+        ),
+      );
+    },
+    [messages, persistMessages],
+  );
 
   if (!caseRecord || !chatMeta) {
     return (
@@ -258,7 +313,12 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
     );
   }
 
-  const isSendDisabled = message.trim().length === 0 || isGenerating;
+  const canSendWithComposerTrigger = isTaskCreationComposerTrigger({
+    mode: composerMode,
+    skillId: composerSkill?.id ?? null,
+  });
+  const isSendDisabled =
+    (message.trim().length === 0 && !canSendWithComposerTrigger) || isGenerating;
 
   const resizeTextarea = (event: FormEvent<HTMLTextAreaElement>) => {
     const target = event.currentTarget;
@@ -268,16 +328,31 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
 
   const sendMessage = async (contentOverride?: string) => {
     const trimmed = (contentOverride ?? message).trim();
-    if (!trimmed || isGenerating) return;
+    const effectiveContent =
+      trimmed ||
+      (canSendWithComposerTrigger && !contentOverride ? TASK_DEMO_PROMPT : "");
+    if (!effectiveContent || isGenerating) return;
 
     if (!contentOverride) setMessage("");
+    const composerContext = {
+      mode: composerMode,
+      skillId: composerSkill?.id ?? null,
+    };
+    setComposerMode(null);
+    setComposerSkill(null);
 
     const withUser: CaseChatMessage[] = [
       ...messages,
-      { id: `${Date.now()}-user`, role: "user", content: trimmed },
+      {
+        id: `${Date.now()}-user`,
+        role: "user",
+        content: effectiveContent,
+        ...(composerContext.mode ? { composerMode: composerContext.mode } : {}),
+        ...(composerContext.skillId ? { skillId: composerContext.skillId } : {}),
+      },
     ];
     persistMessages(withUser);
-    await runAssistantTurn(withUser);
+    await runAssistantTurn(withUser, composerContext);
   };
 
   const handleTextareaKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -368,6 +443,45 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
                     </button>
                   </div>
                 </div>
+              ) : chatMessage.presentation === "create_task_demo" && chatMessage.generatedTask ? (
+                <div key={chatMessage.id} className="group max-w-[90%]">
+                  {chatMessage.content ? (
+                    <p className="whitespace-pre-wrap text-response-md text-neutral-950">
+                      {chatMessage.content}
+                    </p>
+                  ) : null}
+                  <ChatTaskDemoCard
+                    task={chatMessage.generatedTask}
+                    synced={chatMessage.cloudLexSynced}
+                    onSync={() => markTaskSynced(chatMessage.id)}
+                  />
+                  <div
+                    className={[
+                      "mt-1 flex h-6 items-center gap-1 text-neutral-500 ui-t-opacity",
+                      messageIndex === lastAssistantMessageIndex
+                        ? "opacity-100"
+                        : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
+                    ].join(" ")}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Copy response"
+                      onClick={() => void handleCopyMessage(chatMessage.content)}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                    >
+                      <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Share response"
+                      onClick={() => void handleCopyMessage(chatMessage.content)}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                    >
+                      <Share2 className="h-3.5 w-3.5" strokeWidth={1.9} />
+                    </button>
+                  </div>
+                  <LexeeResponseEndSymbol visible={isLexeeEndSymbolVisible(messageIndex)} />
+                </div>
               ) : (
                 <div key={chatMessage.id} className="group max-w-[90%]">
                   <p className="whitespace-pre-wrap text-response-md text-neutral-950">
@@ -446,6 +560,10 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
                 onKeyDown={handleTextareaKeyDown}
                 onSend={() => void sendMessage()}
                 sendDisabled={isSendDisabled}
+                composerMode={composerMode}
+                onComposerModeChange={setComposerMode}
+                selectedSkill={composerSkill}
+                onSkillSelect={setComposerSkill}
               />
             </div>
           </div>

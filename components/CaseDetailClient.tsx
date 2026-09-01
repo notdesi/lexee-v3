@@ -22,6 +22,12 @@ import {
   pinCase,
   unpinCase,
 } from "@/lib/case-workspace";
+import type { Skill } from "@/app/skills/skills-data";
+import {
+  isTaskCreationComposerTrigger,
+  TASK_DEMO_PROMPT,
+  type ComposerMode,
+} from "@/lib/task-launches";
 
 const CASE_CHAT_COMPOSER_CLASS =
   "flex min-h-[120px] w-full flex-col rounded-[20px] border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-5 py-4 shadow-[var(--shadow-chatbox)] ui-t-layout";
@@ -135,6 +141,8 @@ export function CaseDetailClient({ caseId }: CaseDetailClientProps) {
     return getMergedCaseChatsForCase(caseRecord.id, workspace.chats);
   }, [caseRecord, workspace.chats]);
   const [message, setMessage] = useState("");
+  const [composerMode, setComposerMode] = useState<ComposerMode | null>(null);
+  const [composerSkill, setComposerSkill] = useState<Skill | null>(null);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [documentPreviewOpen, setDocumentPreviewOpen] = useState(false);
@@ -214,7 +222,11 @@ export function CaseDetailClient({ caseId }: CaseDetailClientProps) {
     );
   }
 
-  const isSendDisabled = message.trim().length === 0;
+  const canSendWithComposerTrigger = isTaskCreationComposerTrigger({
+    mode: composerMode,
+    skillId: composerSkill?.id ?? null,
+  });
+  const isSendDisabled = message.trim().length === 0 && !canSendWithComposerTrigger;
 
   const resizeTextarea = (event: FormEvent<HTMLTextAreaElement>) => {
     const target = event.currentTarget;
@@ -231,12 +243,24 @@ export function CaseDetailClient({ caseId }: CaseDetailClientProps) {
 
   const sendMessage = () => {
     const trimmed = message.trim();
-    if (!trimmed || !caseRecord) return;
-    const result = createCaseChat(caseId, caseRecord.name, trimmed);
+    const effectiveContent =
+      trimmed || (canSendWithComposerTrigger ? TASK_DEMO_PROMPT : "");
+    if (!effectiveContent || !caseRecord) return;
+
+    const composerModeAtSend = composerMode;
+    const skillIdAtSend = composerSkill?.id ?? null;
+    setComposerMode(null);
+    setComposerSkill(null);
+
+    const result = createCaseChat(caseId, caseRecord.name, effectiveContent, {
+      composerMode: composerModeAtSend,
+      skillId: skillIdAtSend,
+    });
     if (!result.ok) {
       setNotice(result.message);
       return;
     }
+    setMessage("");
     router.replace(getCaseChatHref(caseId, result.chat.id), { scroll: false });
   };
 
@@ -305,6 +329,10 @@ export function CaseDetailClient({ caseId }: CaseDetailClientProps) {
               onKeyDown={handleTextareaKeyDown}
               onSend={sendMessage}
               sendDisabled={isSendDisabled}
+              composerMode={composerMode}
+              onComposerModeChange={setComposerMode}
+              selectedSkill={composerSkill}
+              onSkillSelect={setComposerSkill}
             />
           </div>
 

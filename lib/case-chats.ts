@@ -1,4 +1,9 @@
 import type { CaseChatMessage } from "@/lib/case-workspace";
+import {
+  TASK_ADDITIONAL_INSTRUCTIONS_RESPONSE,
+  TASK_CREATION_DEMO_CONFIRMATION,
+  buildDemoTask,
+} from "@/lib/task-launches";
 
 export type CaseChatEntry = {
   id: string;
@@ -83,13 +88,28 @@ const DUMMY_CHAT_MESSAGES: Record<string, CaseChatMessage[]> = {
     {
       id: "m2-u1",
       role: "user",
-      content: "What discovery deadlines are coming up?",
+      content: "Create a task to follow up on discovery responses",
     },
     {
       id: "m2-a1",
       role: "assistant",
-      content:
-        "The next tracked deadlines are initial disclosures and expert designations. I can draft a checklist mapped to the current scheduling order.",
+      content: TASK_ADDITIONAL_INSTRUCTIONS_RESPONSE,
+      presentation: "task_creation_additional_instructions",
+    },
+    {
+      id: "m2-u2",
+      role: "user",
+      content: "Assign it to me, due next Friday.",
+    },
+    {
+      id: "m2-a2",
+      role: "assistant",
+      content: TASK_CREATION_DEMO_CONFIRMATION,
+      presentation: "create_task_demo",
+      generatedTask: buildDemoTask({
+        matterName: "Murdock v. Metro Health",
+        seedPrompt: "Create a task to follow up on discovery responses",
+      }),
     },
   ],
   "matter-1-chat-3": [

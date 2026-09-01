@@ -4,6 +4,7 @@ import type { FormEvent, KeyboardEvent, RefObject } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { Skill } from "@/app/skills/skills-data";
 import { ChatComposerFooter } from "@/components/ChatComposerFooter";
+import type { ComposerMode } from "@/lib/task-launches";
 
 type ChatComposerInputProps = {
   message: string;
@@ -14,6 +15,10 @@ type ChatComposerInputProps = {
   onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   onInput?: (event: FormEvent<HTMLTextAreaElement>) => void;
   placeholder?: string;
+  composerMode?: ComposerMode | null;
+  onComposerModeChange?: (mode: ComposerMode | null) => void;
+  selectedSkill?: Skill | null;
+  onSkillSelect?: (skill: Skill | null) => void;
 };
 
 export function ChatComposerInput({
@@ -25,8 +30,14 @@ export function ChatComposerInput({
   onKeyDown,
   onInput,
   placeholder = "Ask me anything...",
+  composerMode = null,
+  onComposerModeChange,
+  selectedSkill: selectedSkillProp,
+  onSkillSelect,
 }: ChatComposerInputProps) {
-  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
+  const [internalSkill, setInternalSkill] = useState<Skill | null>(null);
+  const selectedSkill = selectedSkillProp ?? internalSkill;
+
   const [skillIndent, setSkillIndent] = useState(0);
   const skillLabelRef = useRef<HTMLSpanElement | null>(null);
 
@@ -39,11 +50,13 @@ export function ChatComposerInput({
   }, [selectedSkill]);
 
   const handleSkillSelect = (skill: Skill) => {
-    setSelectedSkill(skill);
+    if (onSkillSelect) onSkillSelect(skill);
+    else setInternalSkill(skill);
   };
 
   const clearSelectedSkill = () => {
-    setSelectedSkill(null);
+    if (onSkillSelect) onSkillSelect(null);
+    else setInternalSkill(null);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -62,6 +75,7 @@ export function ChatComposerInput({
   const handleSend = () => {
     onSend();
     clearSelectedSkill();
+    onComposerModeChange?.(null);
   };
 
   return (
@@ -93,6 +107,8 @@ export function ChatComposerInput({
         sendDisabled={sendDisabled}
         selectedSkillId={selectedSkill?.id ?? null}
         onSkillSelect={handleSkillSelect}
+        selectedMode={composerMode}
+        onModeChange={onComposerModeChange}
       />
     </>
   );

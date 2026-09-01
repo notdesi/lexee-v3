@@ -1,4 +1,6 @@
 import { getCaseById, type CaseScope } from "@/lib/cases";
+import type { TaskCardData } from "@/components/TaskCard";
+import type { ComposerMode } from "@/lib/task-launches";
 
 export const MAX_PINNED_CASES = 5;
 export const MAX_CHATS_PER_CASE = 10;
@@ -15,6 +17,11 @@ export type CaseChatMessage = {
   role: "user" | "assistant";
   content: string;
   presentation?: string;
+  generatedTask?: TaskCardData;
+  cloudLexSynced?: boolean;
+  /** Composer tool active when the user sent this message. */
+  composerMode?: ComposerMode;
+  skillId?: string;
 };
 
 export type CaseChatSession = {
@@ -118,6 +125,10 @@ export function createCaseChat(
   caseId: string,
   _caseName: string,
   firstMessage: string,
+  options?: {
+    composerMode?: ComposerMode | null;
+    skillId?: string | null;
+  },
 ): { ok: true; chat: CaseChatSession } | { ok: false; message: string } {
   const trimmed = firstMessage.trim();
   if (!trimmed) {
@@ -135,7 +146,15 @@ export function createCaseChat(
     caseId,
     title: titleFromFirstMessage(trimmed),
     lastActivityAt: now,
-    messages: [{ id: `${Date.now()}-user`, role: "user", content: trimmed }],
+    messages: [
+      {
+        id: `${Date.now()}-user`,
+        role: "user",
+        content: trimmed,
+        ...(options?.composerMode ? { composerMode: options.composerMode } : {}),
+        ...(options?.skillId ? { skillId: options.skillId } : {}),
+      },
+    ],
   };
 
   const expandedCaseIds = workspaceState.expandedCaseIds.includes(caseId)

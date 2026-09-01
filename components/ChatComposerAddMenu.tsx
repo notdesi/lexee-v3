@@ -25,6 +25,7 @@ import {
 import { createPortal } from "react-dom";
 import { AnimatedPopover } from "@/components/AnimatedPopover";
 import { SKILLS, skillsSortedByCreatedDesc, type Skill } from "@/app/skills/skills-data";
+import type { ComposerMode } from "@/lib/task-launches";
 
 const composerIconButtonClass =
   "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-600 ui-t-colors hover:bg-neutral-200/80 hover:text-neutral-950";
@@ -56,9 +57,7 @@ const preventFocusSteal = (event: ReactMouseEvent) => {
   event.preventDefault();
 };
 
-type ComposerMode = "document-drafting" | "task" | "event" | "note";
-
-type ModeConfig = {
+type ComposerModeConfig = {
   key: ComposerMode;
   label: string;
   icon: LucideIcon;
@@ -67,7 +66,7 @@ type ModeConfig = {
   pillIconClass: string;
 };
 
-const MODE_OPTIONS: ModeConfig[] = [
+const MODE_OPTIONS: ComposerModeConfig[] = [
   {
     key: "document-drafting",
     label: "Document drafting",
@@ -104,7 +103,7 @@ const MODE_OPTIONS: ModeConfig[] = [
 
 const MODE_CONFIG = Object.fromEntries(MODE_OPTIONS.map((mode) => [mode.key, mode])) as Record<
   ComposerMode,
-  ModeConfig
+  ComposerModeConfig
 >;
 
 const COMPOSER_SKILLS = skillsSortedByCreatedDesc(SKILLS);
@@ -112,15 +111,18 @@ const COMPOSER_SKILLS = skillsSortedByCreatedDesc(SKILLS);
 type ChatComposerAddMenuProps = {
   selectedSkillId?: string | null;
   onSkillSelect?: (skill: Skill) => void;
+  selectedMode?: ComposerMode | null;
+  onModeChange?: (mode: ComposerMode | null) => void;
 };
 
 export function ChatComposerAddMenu({
   selectedSkillId = null,
   onSkillSelect,
+  selectedMode = null,
+  onModeChange,
 }: ChatComposerAddMenuProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [skillsOpen, setSkillsOpen] = useState(false);
-  const [selectedMode, setSelectedMode] = useState<ComposerMode | null>(null);
   const [mainMenuStyle, setMainMenuStyle] = useState<CSSProperties>({});
   const [skillsMenuStyle, setSkillsMenuStyle] = useState<CSSProperties>({});
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -224,12 +226,12 @@ export function ChatComposerAddMenu({
   };
 
   const selectMode = (mode: ComposerMode) => {
-    setSelectedMode(mode);
+    onModeChange?.(mode);
     closeMenu();
   };
 
   const clearMode = () => {
-    setSelectedMode(null);
+    onModeChange?.(null);
   };
 
   const openFilePicker = () => {

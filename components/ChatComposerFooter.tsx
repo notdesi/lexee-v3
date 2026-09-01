@@ -3,12 +3,15 @@
 import { ArrowUp } from "lucide-react";
 import type { Skill } from "@/app/skills/skills-data";
 import { ChatComposerAddMenu } from "@/components/ChatComposerAddMenu";
+import type { ComposerMode } from "@/lib/task-launches";
 
 type ChatComposerFooterProps = {
   onSend: () => void;
   sendDisabled?: boolean;
   selectedSkillId?: string | null;
   onSkillSelect?: (skill: Skill) => void;
+  selectedMode?: ComposerMode | null;
+  onModeChange?: (mode: ComposerMode | null) => void;
 };
 
 export function ChatComposerFooter({
@@ -16,10 +19,17 @@ export function ChatComposerFooter({
   sendDisabled = false,
   selectedSkillId = null,
   onSkillSelect,
+  selectedMode = null,
+  onModeChange,
 }: ChatComposerFooterProps) {
   return (
     <div className="mt-1.5 flex shrink-0 items-center justify-between">
-      <ChatComposerAddMenu selectedSkillId={selectedSkillId} onSkillSelect={onSkillSelect} />
+      <ChatComposerAddMenu
+        selectedSkillId={selectedSkillId}
+        onSkillSelect={onSkillSelect}
+        selectedMode={selectedMode}
+        onModeChange={onModeChange}
+      />
       <button
         type="button"
         aria-label="Send message"

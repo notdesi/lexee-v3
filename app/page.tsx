@@ -16,6 +16,7 @@ import { ChatCaseSelector } from "@/components/ChatCaseSelector";
 import { ChatComposerInput } from "@/components/ChatComposerInput";
 import { ChatDocumentsButton } from "@/components/ChatDocumentsButton";
 import { ChatJobsButton } from "@/components/ChatJobsButton";
+import { ChatTaskDemoCard } from "@/components/ChatTaskDemoCard";
 import { JobsPanel } from "@/components/JobsPanel";
 import { uiFadeSlide, uiMotionTransition, UI_CARD_INTERACTIVE } from "@/lib/ui-motion";
 import type { FormEvent, KeyboardEvent } from "react";
@@ -52,6 +53,16 @@ import {
   shouldShowMedicalSummaryDemo,
   shouldShowSummonsDocumentDemo,
 } from "@/lib/skill-launches";
+import { resolveScriptedDemoReply } from "@/lib/scripted-chat-demo";
+import {
+  isTaskCreationComposerTrigger,
+  TASK_ADDITIONAL_INSTRUCTIONS_RESPONSE,
+  TASK_CREATION_SKILL_ID,
+  TASK_DEMO_PROMPT,
+  type ComposerMode,
+} from "@/lib/task-launches";
+import type { Skill } from "@/app/skills/skills-data";
+import type { TaskCardData } from "@/components/TaskCard";
 import { buildLlmTurns, fetchLlmChatReply } from "@/lib/llm-chat-client";
 import { getGeneralChatFirstResponse, getResponse } from "@/lib/responses";
 import {
@@ -81,8 +92,12 @@ type ChatMessage = {
     | "summons_document_demo"
     | "summons_skill_cards"
     | "summons_additional_instructions"
-    | "medical_summary_additional_instructions";
+    | "medical_summary_additional_instructions"
+    | "task_creation_additional_instructions"
+    | "create_task_demo";
   generatedDocument?: DocumentPreview;
+  generatedTask?: TaskCardData;
+  cloudLexSynced?: boolean;
 };
 
 type SummonsCategory = "MVA" | "Slip and Fall";
@@ -228,6 +243,8 @@ function HomeInner() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showThinkingGif, setShowThinkingGif] = useState(true);
   const [selectedMatter, setSelectedMatter] = useState<string | null>(null);
+  const [composerMode, setComposerMode] = useState<ComposerMode | null>(null);
+  const [composerSkill, setComposerSkill] = useState<Skill | null>(null);
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null);
   const [documentPreviewOpen, setDocumentPreviewOpen] = useState(false);
   const [documentCollection, setDocumentCollection] = useState<DocumentPreview[]>([]);
@@ -397,7 +414,8 @@ function HomeInner() {
     const skill = searchParams.get("skill");
     const isMedicalSummaryLaunch = skill === MEDICAL_SUMMARY_SKILL_ID;
     const isSummonsLaunch = skill === SUMMONS_SKILL_ID;
-    if (!isMedicalSummaryLaunch && !isSummonsLaunch) return;
+    const isTaskCreationLaunch = skill === TASK_CREATION_SKILL_ID;
+    if (!isMedicalSummaryLaunch && !isSummonsLaunch && !isTaskCreationLaunch) return;
 
     let cancelled = false;
 
@@ -412,11 +430,19 @@ function HomeInner() {
         {
           id: `launch-user-${Date.now()}`,
           role: "user",
-          content: isSummonsLaunch ? SUMMONS_DEMO_PROMPT : MEDICAL_SUMMARY_DEMO_PROMPT,
+          content: isSummonsLaunch
+            ? SUMMONS_DEMO_PROMPT
+            : isTaskCreationLaunch
+              ? TASK_DEMO_PROMPT
+              : MEDICAL_SUMMARY_DEMO_PROMPT,
         },
       ]);
       setSelectedMatter(
-        isMedicalSummaryLaunch ? MEDICAL_SUMMARY_DEMO_MATTER : DEFAULT_SELECTED_MATTER,
+        isMedicalSummaryLaunch
+          ? MEDICAL_SUMMARY_DEMO_MATTER
+          : isTaskCreationLaunch
+            ? DEFAULT_SELECTED_MATTER
+            : DEFAULT_SELECTED_MATTER,
       );
       /* Keep ?skill= in the URL until generation finishes — immediate router.replace here
        * can reset the suspense/searchParams subtree and drop isGenerating / generationProgress. */
@@ -424,7 +450,11 @@ function HomeInner() {
       const launchMatter = isMedicalSummaryLaunch
         ? MEDICAL_SUMMARY_DEMO_MATTER
         : DEFAULT_SELECTED_MATTER;
-      const launchTitle = isSummonsLaunch ? "Run Summons skill" : "Create Medical summary";
+      const launchTitle = isSummonsLaunch
+        ? "Run Summons skill"
+        : isTaskCreationLaunch
+          ? "Task creation"
+          : "Create Medical summary";
       const launchJobId = chatJobs.startJob({
         title: launchTitle,
         caseRef: caseRefFromMatterName(launchMatter),
@@ -468,12 +498,19 @@ function HomeInner() {
                 content: SUMMONS_ADDITIONAL_INSTRUCTIONS_RESPONSE,
                 presentation: "summons_additional_instructions" as const,
               }
-            : {
-                id: `launch-assistant-${Date.now()}`,
-                role: "assistant" as const,
-                content: MEDICAL_SUMMARY_ADDITIONAL_INSTRUCTIONS_RESPONSE,
-                presentation: "medical_summary_additional_instructions" as const,
-              },
+            : isTaskCreationLaunch
+              ? {
+                  id: `launch-assistant-${Date.now()}`,
+                  role: "assistant" as const,
+                  content: TASK_ADDITIONAL_INSTRUCTIONS_RESPONSE,
+                  presentation: "task_creation_additional_instructions" as const,
+                }
+              : {
+                  id: `launch-assistant-${Date.now()}`,
+                  role: "assistant" as const,
+                  content: MEDICAL_SUMMARY_ADDITIONAL_INSTRUCTIONS_RESPONSE,
+                  presentation: "medical_summary_additional_instructions" as const,
+                },
         ]);
         chatJobs.completeJob(launchJobId);
         setIsGenerating(false);
@@ -506,38 +543,60 @@ function HomeInner() {
     });
   }, [messageCount, reduceMotion]);
 
-  const isSendDisabled = message.trim().length === 0 || isGenerating;
+  const canSendWithComposerTrigger =
+    selectedMatter !== null &&
+    isTaskCreationComposerTrigger({
+      mode: composerMode,
+      skillId: composerSkill?.id ?? null,
+    });
+  const isSendDisabled =
+    (message.trim().length === 0 && !canSendWithComposerTrigger) || isGenerating;
+
+  const markTaskSynced = useCallback((messageId: string) => {
+    setMessages((prev) =>
+      prev.map((entry) =>
+        entry.id === messageId ? { ...entry, cloudLexSynced: true } : entry,
+      ),
+    );
+  }, []);
 
   const sendMessage = async (contentOverride?: string) => {
     const trimmed = (contentOverride ?? message).trim();
-    if (!trimmed) return;
+    const effectiveContent =
+      trimmed ||
+      (canSendWithComposerTrigger && !contentOverride ? TASK_DEMO_PROMPT : "");
+    if (!effectiveContent) return;
 
     generationAbortRef.current?.abort();
     const ac = new AbortController();
     generationAbortRef.current = ac;
 
-    if (isMedicalSummaryRequestPrompt(trimmed)) {
+    if (isMedicalSummaryRequestPrompt(effectiveContent)) {
       setSelectedMatter(MEDICAL_SUMMARY_DEMO_MATTER);
     }
 
-    const matterForJob = isMedicalSummaryRequestPrompt(trimmed)
+    const matterForJob = isMedicalSummaryRequestPrompt(effectiveContent)
       ? MEDICAL_SUMMARY_DEMO_MATTER
       : selectedMatter;
 
     if (!contentOverride) {
       setMessage("");
     }
+    const composerModeAtSend = composerMode;
+    const composerSkillIdAtSend = composerSkill?.id ?? null;
+    setComposerMode(null);
+    setComposerSkill(null);
     setMessages((prev) => [
       ...prev,
       {
         id: `${Date.now()}-user`,
         role: "user",
-        content: trimmed,
+        content: effectiveContent,
       },
     ]);
     setIsGenerating(true);
     const jobId = chatJobs.startJob({
-      title: jobTitleFromPrompt(trimmed),
+      title: jobTitleFromPrompt(effectiveContent),
       caseRef: caseRefFromMatterName(matterForJob),
     });
     const onProgress = chatJobs.bindGenerationProgress(jobId, setGenerationProgress);
@@ -560,18 +619,28 @@ function HomeInner() {
       return;
     }
 
-    const normalized = normalisePrompt(trimmed);
+    const normalized = normalisePrompt(effectiveContent);
     const latestAssistantMessage = [...messages].reverse().find((msg) => msg.role === "assistant");
+    const taskDemoReply = selectedMatter
+      ? resolveScriptedDemoReply({
+          trimmed: effectiveContent,
+          messages,
+          latestAssistantPresentation: latestAssistantMessage?.presentation,
+          matterName: selectedMatter,
+          composerMode: composerModeAtSend,
+          skillId: composerSkillIdAtSend,
+        })
+      : null;
     const useSummonsDocumentDemo = shouldShowSummonsDocumentDemo(
-      trimmed,
+      effectiveContent,
       latestAssistantMessage?.presentation,
     );
-    const useSummonsAdditionalInstructions = isSummonsDocumentRequestPrompt(trimmed);
+    const useSummonsAdditionalInstructions = isSummonsDocumentRequestPrompt(effectiveContent);
     const useMedicalSummaryDemo = shouldShowMedicalSummaryDemo(
-      trimmed,
+      effectiveContent,
       latestAssistantMessage?.presentation,
     );
-    const useMedicalSummaryAdditionalInstructions = isMedicalSummaryRequestPrompt(trimmed);
+    const useMedicalSummaryAdditionalInstructions = isMedicalSummaryRequestPrompt(effectiveContent);
     const useDevLlm = process.env.NEXT_PUBLIC_USE_LLM_CHAT === "true";
 
     const isFirstTurn = messages.length === 0;
@@ -580,8 +649,13 @@ function HomeInner() {
     let assistantReply: string;
     let presentation: ChatMessage["presentation"] | undefined;
     let generatedDocument: DocumentPreview | undefined;
+    let generatedTask: TaskCardData | undefined;
 
-    if (useSummonsDocumentDemo) {
+    if (taskDemoReply) {
+      assistantReply = taskDemoReply.content;
+      presentation = taskDemoReply.presentation as ChatMessage["presentation"];
+      generatedTask = taskDemoReply.generatedTask;
+    } else if (useSummonsDocumentDemo) {
       assistantReply = "Here is your Summons document";
       presentation = "summons_document_demo";
       generatedDocument = createSummonsGeneratedDocument(selectedMatter);
@@ -601,12 +675,12 @@ function HomeInner() {
           ? `We are in the context of ${selectedMatter}. How can I help you?`
           : null;
       const cannedGeneralFirst =
-        isFirstTurn && !hasCaseContext ? getGeneralChatFirstResponse(trimmed) : null;
-      const fallbackReply = cannedCaseHi ?? cannedGeneralFirst ?? getResponse(trimmed);
+        isFirstTurn && !hasCaseContext ? getGeneralChatFirstResponse(effectiveContent) : null;
+      const fallbackReply = cannedCaseHi ?? cannedGeneralFirst ?? getResponse(effectiveContent);
       presentation = undefined;
       if (useDevLlm) {
         try {
-          const turns = buildLlmTurns(messages, trimmed);
+          const turns = buildLlmTurns(messages, effectiveContent);
           const llmText = await fetchLlmChatReply(turns, {
             matter: selectedMatter,
             signal: ac.signal,
@@ -635,6 +709,7 @@ function HomeInner() {
         content: assistantReply,
         ...(presentation ? { presentation } : {}),
         ...(generatedDocument ? { generatedDocument } : {}),
+        ...(generatedTask ? { generatedTask } : {}),
       },
     ]);
     chatJobs.completeJob(jobId);
@@ -842,6 +917,10 @@ function HomeInner() {
                         void sendMessage();
                       }}
                       sendDisabled={isSendDisabled}
+                      composerMode={composerMode}
+                      onComposerModeChange={setComposerMode}
+                      selectedSkill={composerSkill}
+                      onSkillSelect={setComposerSkill}
                     />
                   )}
                 </div>
@@ -985,6 +1064,57 @@ function HomeInner() {
                     <div
                       className={[
                         "mt-1 flex h-6 items-center gap-1 text-neutral-500 ui-t-opacity",
+                        messageIndex === lastAssistantMessageIndex
+                          ? "opacity-100"
+                          : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
+                      ].join(" ")}
+                    >
+                      <button
+                        type="button"
+                        aria-label="Copy response"
+                        onClick={() => {
+                          void handleCopyMessage(chatMessage.content);
+                        }}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Retry response"
+                        onClick={() => handleRetryResponse(messageIndex)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Share response"
+                        onClick={() => {
+                          void handleShareMessage(chatMessage.content);
+                        }}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <Share2 className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                    </div>
+                    <LexeeResponseEndSymbol visible={isLexeeEndSymbolVisible(messageIndex)} />
+                  </div>
+                ) : chatMessage.presentation === "create_task_demo" && chatMessage.generatedTask ? (
+                  <div key={chatMessage.id} className="group max-w-[90%]">
+                    {chatMessage.content ? (
+                      <p className="whitespace-pre-wrap text-response-md text-neutral-950">
+                        {chatMessage.content}
+                      </p>
+                    ) : null}
+                    <ChatTaskDemoCard
+                      task={chatMessage.generatedTask}
+                      synced={chatMessage.cloudLexSynced}
+                      onSync={() => markTaskSynced(chatMessage.id)}
+                    />
+                    <div
+                      className={[
+                        "mt-2 flex h-6 items-center gap-1 text-neutral-500 ui-t-opacity",
                         messageIndex === lastAssistantMessageIndex
                           ? "opacity-100"
                           : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
@@ -1169,6 +1299,10 @@ function HomeInner() {
                       void sendMessage();
                     }}
                     sendDisabled={isSendDisabled}
+                    composerMode={composerMode}
+                    onComposerModeChange={setComposerMode}
+                    selectedSkill={composerSkill}
+                    onSkillSelect={setComposerSkill}
                   />
                 )}
               </div>

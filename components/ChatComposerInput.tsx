@@ -24,7 +24,7 @@ export function ChatComposerInput({
   textareaRef,
   onKeyDown,
   onInput,
-  placeholder = "Type @ for case knowledge context",
+  placeholder = "Ask me anything...",
 }: ChatComposerInputProps) {
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [skillIndent, setSkillIndent] = useState(0);

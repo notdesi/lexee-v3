@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AnimatedPanel } from "@/components/AnimatedPanel";
 import { ChatBreadcrumb } from "@/components/ChatBreadcrumb";
+import { ChatCaseSelector } from "@/components/ChatCaseSelector";
 import { ChatComposerInput } from "@/components/ChatComposerInput";
 import { ChatDocumentsButton } from "@/components/ChatDocumentsButton";
 import { ChatJobsButton } from "@/components/ChatJobsButton";
@@ -209,8 +210,11 @@ function MatterTextCrossfade({
   );
 }
 
+const HOME_CHAT_SHELL_CLASS =
+  "flex w-[620px] max-w-full flex-col rounded-[26px] border border-violet-100 bg-violet-50 p-1.5 shadow-[var(--shadow-chatbox)] ui-t-layout";
+
 const HOME_CHAT_COMPOSER_CLASS =
-  "flex min-h-[120px] w-[620px] max-w-full flex-col rounded-[20px] border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-5 py-4 shadow-[var(--shadow-chatbox)] ui-t-layout";
+  "flex min-h-[120px] w-full flex-col rounded-[20px] border border-[color:var(--chat-outline)] bg-[var(--chatbox-bg)] px-5 py-4 ui-t-layout";
 
 const DEFAULT_CHAT_TITLE = "New chat";
 
@@ -814,20 +818,20 @@ function HomeInner() {
             </div>
 
             <div className="flex w-full flex-col items-center">
-              <div className={HOME_CHAT_COMPOSER_CLASS}>
-                {isVoiceMode ? (
-                  <VoiceListeningPanel
-                    transcript={voiceTranscript}
-                    interimTranscript={voiceInterim}
-                    error={voiceError}
-                    onCancel={cancelVoiceMode}
-                    onConfirm={confirmVoiceMode}
-                    disabledConfirm={
-                      `${voiceTranscript}${voiceInterim}`.trim().length === 0
-                    }
-                  />
-                ) : (
-                  <>
+              <div className={HOME_CHAT_SHELL_CLASS}>
+                <div className={HOME_CHAT_COMPOSER_CLASS}>
+                  {isVoiceMode ? (
+                    <VoiceListeningPanel
+                      transcript={voiceTranscript}
+                      interimTranscript={voiceInterim}
+                      error={voiceError}
+                      onCancel={cancelVoiceMode}
+                      onConfirm={confirmVoiceMode}
+                      disabledConfirm={
+                        `${voiceTranscript}${voiceInterim}`.trim().length === 0
+                      }
+                    />
+                  ) : (
                     <ChatComposerInput
                       message={message}
                       onMessageChange={setMessage}
@@ -839,8 +843,12 @@ function HomeInner() {
                       }}
                       sendDisabled={isSendDisabled}
                     />
-                  </>
-                )}
+                  )}
+                </div>
+                <ChatCaseSelector
+                  selectedCaseName={selectedMatter}
+                  onSelect={(record) => setSelectedMatter(record.name)}
+                />
               </div>
             </div>
           </div>
@@ -1137,20 +1145,20 @@ function HomeInner() {
             }}
           >
             <div className="mx-auto flex w-[620px] max-w-full min-w-0 flex-col">
-            <div className={HOME_CHAT_COMPOSER_CLASS}>
-              {isVoiceMode ? (
-                <VoiceListeningPanel
-                  transcript={voiceTranscript}
-                  interimTranscript={voiceInterim}
-                  error={voiceError}
-                  onCancel={cancelVoiceMode}
-                  onConfirm={confirmVoiceMode}
-                  disabledConfirm={
-                    `${voiceTranscript}${voiceInterim}`.trim().length === 0
-                  }
-                />
-              ) : (
-                <>
+            <div className={HOME_CHAT_SHELL_CLASS}>
+              <div className={HOME_CHAT_COMPOSER_CLASS}>
+                {isVoiceMode ? (
+                  <VoiceListeningPanel
+                    transcript={voiceTranscript}
+                    interimTranscript={voiceInterim}
+                    error={voiceError}
+                    onCancel={cancelVoiceMode}
+                    onConfirm={confirmVoiceMode}
+                    disabledConfirm={
+                      `${voiceTranscript}${voiceInterim}`.trim().length === 0
+                    }
+                  />
+                ) : (
                   <ChatComposerInput
                     message={message}
                     onMessageChange={setMessage}
@@ -1162,8 +1170,12 @@ function HomeInner() {
                     }}
                     sendDisabled={isSendDisabled}
                   />
-                </>
-              )}
+                )}
+              </div>
+              <ChatCaseSelector
+                selectedCaseName={selectedMatter}
+                onSelect={(record) => setSelectedMatter(record.name)}
+              />
             </div>
             </div>
             <p className="mt-2 pb-1 text-center text-caption select-none">

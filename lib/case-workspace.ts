@@ -1,4 +1,4 @@
-import type { CaseScope } from "@/lib/cases";
+import { getCaseById, type CaseScope } from "@/lib/cases";
 
 export const MAX_PINNED_CASES = 5;
 export const MAX_CHATS_PER_CASE = 10;
@@ -37,7 +37,24 @@ const emptyState = (): CaseWorkspaceState => ({
   expandedCaseIds: [],
 });
 
-let workspaceState: CaseWorkspaceState = emptyState();
+function createDefaultWorkspaceState(): CaseWorkspaceState {
+  const matter = getCaseById("matter-1");
+  if (!matter) return emptyState();
+
+  return {
+    pinnedCases: [
+      {
+        id: matter.id,
+        label: matter.name,
+        scope: matter.scope,
+      },
+    ],
+    chats: [],
+    expandedCaseIds: [matter.id],
+  };
+}
+
+let workspaceState: CaseWorkspaceState = createDefaultWorkspaceState();
 
 function dispatchWorkspaceChange() {
   if (typeof window === "undefined") return;

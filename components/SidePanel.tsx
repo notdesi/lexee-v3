@@ -35,9 +35,11 @@ import {
   HISTORY_CHAT_ENTRIES,
   SHARED_HISTORY_CONVERSATION_ID,
 } from "@/lib/history-chat";
+import { getMergedCaseChatsForCase } from "@/lib/case-chats";
 import { getCaseChatHref } from "@/lib/case-chat-routes";
 import type { CaseScope } from "@/lib/cases";
 import { toggleCaseExpanded } from "@/lib/case-workspace";
+import { SHOW_WORKSPACE } from "@/lib/feature-flags";
 import { useCaseWorkspace } from "@/hooks/useCaseWorkspace";
 
 type SidePanelItem = {
@@ -248,14 +250,18 @@ export function SidePanel() {
           router.push("/skills");
         },
       },
-      {
-        key: "workspace",
-        label: "Workspace",
-        icon: LayoutGrid,
-        onClick: () => {
-          router.push("/workspace");
-        },
-      },
+      ...(SHOW_WORKSPACE
+        ? [
+            {
+              key: "workspace",
+              label: "Workspace",
+              icon: LayoutGrid,
+              onClick: () => {
+                router.push("/workspace");
+              },
+            } satisfies SidePanelItem,
+          ]
+        : []),
   ];
 
   /**
@@ -266,13 +272,18 @@ export function SidePanel() {
     if (pathname === "/cases" || pathname.startsWith("/cases/")) return "cases";
     if (pathname === "/documents" || pathname.startsWith("/documents/")) return "documents";
     if (pathname === "/skills" || pathname.startsWith("/skills/")) return "skills";
-    if (pathname === "/workspace" || pathname.startsWith("/workspace/")) return "workspace";
+    if (
+      SHOW_WORKSPACE &&
+      (pathname === "/workspace" || pathname.startsWith("/workspace/"))
+    ) {
+      return "workspace";
+    }
     if (pathname === "/") {
       if (selectedHistoryConversationId) return null;
       if (
         selectedKey === "cases" ||
         selectedKey === "documents" ||
-        selectedKey === "workspace"
+        (SHOW_WORKSPACE && selectedKey === "workspace")
       ) {
         return selectedKey;
       }
@@ -480,7 +491,7 @@ export function SidePanel() {
               {pinnedCases.map((entry) => {
                 const ScopeIcon = CASE_SCOPE_ICONS[entry.scope] ?? Scale;
                 const isCaseExpanded = expandedCaseIds.includes(entry.id);
-                const chatsForCase = caseChats.filter((chat) => chat.caseId === entry.id);
+                const chatsForCase = getMergedCaseChatsForCase(entry.id, caseChats);
                 const isCaseActive = activeCaseId === entry.id && !activeChatId;
 
                 return (

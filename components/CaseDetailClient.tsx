@@ -4,18 +4,21 @@ import { MoreVertical, Pin, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent, KeyboardEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatedPanel } from "@/components/AnimatedPanel";
 import { AnimatedPopover } from "@/components/AnimatedPopover";
 import { CaseBreadcrumb } from "@/components/CaseBreadcrumb";
 import { CaseChatClient } from "@/components/CaseChatClient";
 import { ChatComposerInput } from "@/components/ChatComposerInput";
+import { ChatDocumentsButton } from "@/components/ChatDocumentsButton";
+import { DocumentPreviewPanel, type DocumentPreview } from "@/components/DocumentPreviewPanel";
 import { useCaseWorkspace } from "@/hooks/useCaseWorkspace";
-import { getCaseChats, type CaseChatEntry } from "@/lib/case-chats";
+import { getMergedCaseChatsForCase } from "@/lib/case-chats";
 import { getCaseChatHref } from "@/lib/case-chat-routes";
+import { collectCaseGeneratedDocuments } from "@/lib/case-documents";
 import { formatLastActivity, getCaseById } from "@/lib/cases";
 import {
   createCaseChat,
-  getSessionChatsForCase,
   pinCase,
   unpinCase,
 } from "@/lib/case-workspace";
@@ -129,26 +132,35 @@ export function CaseDetailClient({ caseId }: CaseDetailClientProps) {
   const caseRecord = useMemo(() => getCaseById(caseId), [caseId]);
   const recentChats = useMemo(() => {
     if (!caseRecord) return [];
-    const staticChats = getCaseChats(caseRecord.id);
-    const sessionChats: CaseChatEntry[] = getSessionChatsForCase(caseRecord.id).map(
-      (chat) => ({
-        id: chat.id,
-        caseId: chat.caseId,
-        title: chat.title,
-        lastActivityAt: chat.lastActivityAt,
-      }),
-    );
-    const merged = new Map<string, CaseChatEntry>();
-    [...sessionChats, ...staticChats].forEach((chat) => merged.set(chat.id, chat));
-    return [...merged.values()].sort(
-      (a, b) =>
-        new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime(),
-    );
+    return getMergedCaseChatsForCase(caseRecord.id, workspace.chats);
   }, [caseRecord, workspace.chats]);
   const [message, setMessage] = useState("");
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [documentPreviewOpen, setDocumentPreviewOpen] = useState(false);
+  const [documentCollection, setDocumentCollection] = useState<DocumentPreview[]>([]);
+  const [documentActiveIndex, setDocumentActiveIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const caseDocuments = useMemo(() => {
+    if (!caseRecord) return [];
+    return collectCaseGeneratedDocuments(caseRecord.id, workspace.chats, caseRecord.name);
+  }, [caseRecord, workspace.chats]);
+
+  const isGeneratedDocumentsPanelOpen =
+    documentPreviewOpen && documentCollection.length > 0;
+
+  const openGeneratedDocumentsPanel = useCallback(() => {
+    if (!caseDocuments.length) return;
+    setDocumentCollection(caseDocuments);
+    setDocumentActiveIndex(0);
+    setDocumentPreviewOpen(true);
+  }, [caseDocuments]);
+
+  useEffect(() => {
+    if (!documentPreviewOpen) return;
+    window.dispatchEvent(new CustomEvent("lexee:right-panel-opened"));
+  }, [documentPreviewOpen]);
 
   const isPinned = workspace.pinnedCases.some((entry) => entry.id === caseId);
 
@@ -229,7 +241,8 @@ export function CaseDetailClient({ caseId }: CaseDetailClientProps) {
   };
 
   return (
-    <div className="flex h-[100dvh] min-h-0 flex-1 flex-col overflow-hidden bg-[var(--background)] pl-4 pr-6">
+    <div className="flex h-[100dvh] min-h-0 w-full min-w-0 flex-1 flex-row overflow-hidden bg-[var(--background)]">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pl-4 pr-6">
       {notice ? (
         <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
           <p className="rounded-lg border border-[color:var(--chat-outline)] bg-neutral-50 px-4 py-2 text-body-md text-neutral-950 shadow-[var(--shadow-popup)]">
@@ -241,8 +254,8 @@ export function CaseDetailClient({ caseId }: CaseDetailClientProps) {
         <CaseBreadcrumb caseName={caseRecord.name} />
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pb-16">
-        <div className="mx-auto w-full max-w-[620px] pt-16">
+      <div className="min-h-0 flex-1 flex flex-col overflow-y-auto pb-16">
+        <div className="mx-auto w-full max-w-[620px] shrink-0 pt-16">
           <p className="text-caption text-neutral-600">{caseRecord.caseNumber}</p>
 
           <div className="mt-1 flex items-center justify-between gap-6">
@@ -250,6 +263,11 @@ export function CaseDetailClient({ caseId }: CaseDetailClientProps) {
               {caseRecord.name}
             </h1>
             <div className="flex shrink-0 items-center gap-0.5">
+              <ChatDocumentsButton
+                count={caseDocuments.length}
+                onClick={openGeneratedDocumentsPanel}
+                active={isGeneratedDocumentsPanelOpen}
+              />
               <button
                 type="button"
                 aria-label={isPinned ? "Unpin case" : "Pin case"}
@@ -275,7 +293,9 @@ export function CaseDetailClient({ caseId }: CaseDetailClientProps) {
           </div>
         </div>
 
-        <div className="mx-auto mt-10 w-full max-w-[620px]">
+        <div className="flex-1" aria-hidden />
+
+        <div className="mx-auto w-full max-w-[620px] shrink-0">
           <div className={CASE_CHAT_COMPOSER_CLASS}>
             <ChatComposerInput
               message={message}
@@ -332,7 +352,28 @@ export function CaseDetailClient({ caseId }: CaseDetailClientProps) {
             )}
           </section>
         </div>
+
+        <div className="flex-1" aria-hidden />
       </div>
+      </div>
+
+      <AnimatedPanel open={documentPreviewOpen} className="shrink-0">
+        {documentPreviewOpen ? (
+          <DocumentPreviewPanel
+            open
+            documents={documentCollection}
+            activeIndex={documentActiveIndex}
+            collectionTitle="Generated documents"
+            collectionSubtitle={`${documentCollection.length} document${documentCollection.length === 1 ? "" : "s"} in this case`}
+            initialView="list"
+            onSelect={setDocumentActiveIndex}
+            onUpdateDocument={(index, next) =>
+              setDocumentCollection((prev) => prev.map((doc, i) => (i === index ? next : doc)))
+            }
+            onClose={() => setDocumentPreviewOpen(false)}
+          />
+        ) : null}
+      </AnimatedPanel>
     </div>
   );
 }

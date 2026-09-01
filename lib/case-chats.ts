@@ -75,7 +75,8 @@ const DUMMY_CHAT_MESSAGES: Record<string, CaseChatMessage[]> = {
       id: "m1-a1",
       role: "assistant",
       content:
-        "The operative complaint alleges hospital negligence during post-operative monitoring. I can break out the duty, breach, causation, and damages sections if you want a structured summary.",
+        "Here is your Summons document for Murdock v. Metro Health.",
+      presentation: "summons_document_demo",
     },
   ],
   "matter-1-chat-2": [
@@ -101,7 +102,8 @@ const DUMMY_CHAT_MESSAGES: Record<string, CaseChatMessage[]> = {
       id: "m3-a1",
       role: "assistant",
       content:
-        "I’ll organize treatment dates from the records we have indexed so far, starting with the ER visit through the latest neurology follow-up.",
+        "Here is the medical summary organized from the records indexed for this matter.",
+      presentation: "medical_summary_demo",
     },
   ],
   "matter-2-chat-1": [
@@ -187,6 +189,31 @@ const DUMMY_CHAT_MESSAGES: Record<string, CaseChatMessage[]> = {
 
 export function getCaseChats(caseId: string): CaseChatEntry[] {
   return CASE_CHATS.filter((entry) => entry.caseId === caseId).sort(
+    (a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime(),
+  );
+}
+
+export function getMergedCaseChatsForCase(
+  caseId: string,
+  sessionChats: ReadonlyArray<{
+    id: string;
+    caseId: string;
+    title: string;
+    lastActivityAt: string;
+  }>,
+): CaseChatEntry[] {
+  const staticChats = getCaseChats(caseId);
+  const sessionEntries: CaseChatEntry[] = sessionChats
+    .filter((chat) => chat.caseId === caseId)
+    .map((chat) => ({
+      id: chat.id,
+      caseId: chat.caseId,
+      title: chat.title,
+      lastActivityAt: chat.lastActivityAt,
+    }));
+  const merged = new Map<string, CaseChatEntry>();
+  [...sessionEntries, ...staticChats].forEach((chat) => merged.set(chat.id, chat));
+  return [...merged.values()].sort(
     (a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime(),
   );
 }

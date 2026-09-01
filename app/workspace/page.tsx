@@ -2,6 +2,7 @@
 
 import { CalendarDays, Check, ChevronDown, LayoutList, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatedPanel } from "@/components/AnimatedPanel";
 import { AnimatedPopover } from "@/components/AnimatedPopover";
 import { EventCalendar } from "@/components/EventCalendar";
@@ -30,6 +31,7 @@ import {
   type WorkspaceEvent,
   type WorkspaceItemType,
 } from "@/lib/workspace";
+import { SHOW_WORKSPACE } from "@/lib/feature-flags";
 import { UI_CARD_INTERACTIVE } from "@/lib/ui-motion";
 
 const TYPE_OPTIONS: { value: WorkspaceItemType; label: string }[] = [
@@ -175,6 +177,7 @@ function AssignmentFilterDropdown<T extends string>({
 }
 
 export default function WorkspacePage() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(true);
   const [type, setType] = useState<WorkspaceItemType>("task");
@@ -189,6 +192,12 @@ export default function WorkspacePage() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const useSplitLayout = type === "event" && eventViewMode === "calendar";
+
+  useEffect(() => {
+    if (!SHOW_WORKSPACE) {
+      router.replace("/");
+    }
+  }, [router]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -310,6 +319,8 @@ export default function WorkspacePage() {
       : type === "event"
         ? EMPTY_EVENT_ASSIGNMENT_COPY[eventAssignmentFilter]
         : EMPTY_TYPE_COPY[type];
+
+  if (!SHOW_WORKSPACE) return null;
 
   return (
     <div

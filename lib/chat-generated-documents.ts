@@ -33,12 +33,15 @@ export function createDemandLetterGeneratedDocument(): DocumentPreview {
   });
 }
 
-export function documentFromChatMessage(message: ChatGeneratedDocumentSource): DocumentPreview | null {
+export function documentFromChatMessage(
+  message: ChatGeneratedDocumentSource,
+  options?: { matterName?: string | null },
+): DocumentPreview | null {
   if (message.generatedDocument) return message.generatedDocument;
 
   switch (message.presentation) {
     case "summons_document_demo":
-      return createSummonsGeneratedDocument();
+      return createSummonsGeneratedDocument(options?.matterName);
     case "medical_summary_demo":
       return createMedicalSummaryGeneratedDocument();
     case "demand_letter_demo":
@@ -48,10 +51,13 @@ export function documentFromChatMessage(message: ChatGeneratedDocumentSource): D
   }
 }
 
-export function collectGeneratedDocuments(messages: ChatGeneratedDocumentSource[]): DocumentPreview[] {
+export function collectGeneratedDocuments(
+  messages: ChatGeneratedDocumentSource[],
+  options?: { matterName?: string | null },
+): DocumentPreview[] {
   const documents: DocumentPreview[] = [];
   for (const message of messages) {
-    const document = documentFromChatMessage(message);
+    const document = documentFromChatMessage(message, options);
     if (document) documents.push(document);
   }
   return documents;

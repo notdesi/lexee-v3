@@ -8,11 +8,13 @@ import { SegmentPillNav } from "@/components/SegmentPillNav";
 import { useCaseWorkspace } from "@/hooks/useCaseWorkspace";
 import {
   CASES as INITIAL_CASES,
+  countCasesByScope,
   formatLastActivity,
   type CaseRecord,
   type CaseScope,
 } from "@/lib/cases";
 import { pinCase, unpinCase } from "@/lib/case-workspace";
+import { UI_CARD_INTERACTIVE } from "@/lib/ui-motion";
 
 type SortOption = "last-updated" | "date-created" | "alphabetical";
 
@@ -297,6 +299,17 @@ export default function CasesPage() {
     return sorted;
   }, [cases, query, scope, sort]);
 
+  const scopeCounts = useMemo(() => countCasesByScope(cases), [cases]);
+
+  const scopeOptions = useMemo(
+    () =>
+      SCOPE_OPTIONS.map((option) => ({
+        ...option,
+        count: scopeCounts[option.value],
+      })),
+    [scopeCounts],
+  );
+
   return (
     <div className="flex h-[100dvh] min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--background)] px-8 py-8">
       {notice ? (
@@ -365,7 +378,7 @@ export default function CasesPage() {
 
         <div className="mt-8">
           <SegmentPillNav
-            options={SCOPE_OPTIONS}
+            options={scopeOptions}
             value={scope}
             onChange={setScope}
             ariaLabel="Case type"
@@ -387,7 +400,7 @@ export default function CasesPage() {
                         router.push(`/cases/${record.id}`);
                       }
                     }}
-                    className="relative flex h-full cursor-pointer flex-col rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 px-4 py-4 text-left shadow-[var(--shadow-card)] ui-t-colors hover:border-neutral-300 hover:bg-neutral-100"
+                    className={`relative flex h-full cursor-pointer flex-col px-4 py-4 text-left ${UI_CARD_INTERACTIVE}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1 text-left">
@@ -403,7 +416,12 @@ export default function CasesPage() {
                       />
                       </div>
                     </div>
-                    <p className="mt-2 text-caption text-neutral-600">{record.caseNumber}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <p className="text-caption text-neutral-600">{record.caseNumber}</p>
+                      <span className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[11px] font-medium leading-4 text-neutral-700">
+                        {record.type}
+                      </span>
+                    </div>
                     <p className="mt-3 text-[12px] leading-4 text-neutral-500">
                       {formatLastActivity(record.updatedAt)}
                     </p>

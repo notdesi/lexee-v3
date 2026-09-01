@@ -4,7 +4,6 @@ import Image from "next/image";
 import {
   Copy,
   Download,
-  FileText,
   Pencil,
   RotateCcw,
   Share2,
@@ -13,16 +12,20 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AnimatedPanel } from "@/components/AnimatedPanel";
 import { ChatBreadcrumb } from "@/components/ChatBreadcrumb";
-import { ChatComposerFooter } from "@/components/ChatComposerFooter";
+import { ChatComposerInput } from "@/components/ChatComposerInput";
 import { ChatDocumentsButton } from "@/components/ChatDocumentsButton";
-import { uiFadeSlide, uiMotionTransition } from "@/lib/ui-motion";
+import { ChatJobsButton } from "@/components/ChatJobsButton";
+import { JobsPanel } from "@/components/JobsPanel";
+import { uiFadeSlide, uiMotionTransition, UI_CARD_INTERACTIVE } from "@/lib/ui-motion";
 import type { FormEvent, KeyboardEvent } from "react";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LexeeResponseEndSymbol } from "@/components/LexeeResponseEndSymbol";
 import { MedicalSummaryDemoResponse } from "@/components/MedicalSummaryDemoResponse";
+import { DocumentFormatBadge } from "@/components/DocumentFormatBadge";
 import { DocumentPreviewPanel, type DocumentPreview } from "@/components/DocumentPreviewPanel";
 import { VoiceListeningPanel } from "@/components/VoiceListeningPanel";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useChatJobs } from "@/hooks/useChatJobs";
 import { createSampleDocumentPreview } from "@/lib/document-preview-names";
 import {
   collectGeneratedDocuments,
@@ -34,6 +37,7 @@ import {
   type GenerationProgress,
   runGenerationPhases,
 } from "@/lib/generation-phases";
+import { caseRefFromMatterName, jobTitleFromPrompt } from "@/lib/jobs";
 import {
   MEDICAL_SUMMARY_SKILL_ID,
   MEDICAL_SUMMARY_DEMO_PROMPT,
@@ -226,6 +230,9 @@ function HomeInner() {
   const [documentActiveIndex, setDocumentActiveIndex] = useState(0);
   const [documentCollectionTitle, setDocumentCollectionTitle] = useState<string | undefined>(undefined);
   const [documentCollectionSubtitle, setDocumentCollectionSubtitle] = useState<string | undefined>(undefined);
+  const [documentPreviewInitialView, setDocumentPreviewInitialView] = useState<
+    "list" | "preview" | undefined
+  >(undefined);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const generationAbortRef = useRef<AbortController | null>(null);
@@ -240,6 +247,7 @@ function HomeInner() {
     abort: abortSpeech,
     reset: resetSpeech,
   } = useSpeechRecognition();
+  const chatJobs = useChatJobs({ includeDemoJob: true });
 
   const normalisePrompt = (prompt: string) =>
     prompt
@@ -318,12 +326,14 @@ function HomeInner() {
     setDocumentActiveIndex(0);
     setDocumentCollectionTitle(undefined);
     setDocumentCollectionSubtitle(undefined);
+    setDocumentPreviewInitialView(undefined);
+    chatJobs.resetJobs();
     window.dispatchEvent(
       new CustomEvent("lexee:active-conversation-changed", {
         detail: { conversationId: null as string | null },
       }),
     );
-  }, []);
+  }, [chatJobs.resetJobs]);
 
   useEffect(() => {
     window.addEventListener("lexee:new-chat", resetChat);
@@ -407,16 +417,30 @@ function HomeInner() {
       /* Keep ?skill= in the URL until generation finishes — immediate router.replace here
        * can reset the suspense/searchParams subtree and drop isGenerating / generationProgress. */
       setIsGenerating(true);
-      setGenerationProgress({
+      const launchMatter = isMedicalSummaryLaunch
+        ? MEDICAL_SUMMARY_DEMO_MATTER
+        : DEFAULT_SELECTED_MATTER;
+      const launchTitle = isSummonsLaunch ? "Run Summons skill" : "Create Medical summary";
+      const launchJobId = chatJobs.startJob({
+        title: launchTitle,
+        caseRef: caseRefFromMatterName(launchMatter),
+      });
+      const onLaunchProgress = chatJobs.bindGenerationProgress(launchJobId, setGenerationProgress);
+      onLaunchProgress({
         headline: GENERATION_PHASES[0]?.label ?? "Lexee is thinking…",
         step: 0,
       });
 
       void (async () => {
         try {
-          await runGenerationPhases(setGenerationProgress, ac.signal);
+          await runGenerationPhases(onLaunchProgress, ac.signal);
         } catch {
           if (!cancelled) {
+            if (ac.signal.aborted) {
+              chatJobs.cancelJob(launchJobId);
+            } else {
+              chatJobs.failJob(launchJobId);
+            }
             setIsGenerating(false);
             setGenerationProgress(null);
             router.replace("/", { scroll: false });
@@ -426,6 +450,7 @@ function HomeInner() {
         }
 
         if (cancelled) {
+          chatJobs.cancelJob(launchJobId);
           generationAbortRef.current = null;
           return;
         }
@@ -446,6 +471,7 @@ function HomeInner() {
                 presentation: "medical_summary_additional_instructions" as const,
               },
         ]);
+        chatJobs.completeJob(launchJobId);
         setIsGenerating(false);
         setGenerationProgress(null);
         generationAbortRef.current = null;
@@ -457,7 +483,15 @@ function HomeInner() {
       cancelled = true;
       generationAbortRef.current?.abort();
     };
-  }, [searchParams, router]);
+  }, [
+    searchParams,
+    router,
+    chatJobs.startJob,
+    chatJobs.bindGenerationProgress,
+    chatJobs.completeJob,
+    chatJobs.failJob,
+    chatJobs.cancelJob,
+  ]);
 
   const messageCount = messages.length;
 
@@ -482,6 +516,10 @@ function HomeInner() {
       setSelectedMatter(MEDICAL_SUMMARY_DEMO_MATTER);
     }
 
+    const matterForJob = isMedicalSummaryRequestPrompt(trimmed)
+      ? MEDICAL_SUMMARY_DEMO_MATTER
+      : selectedMatter;
+
     if (!contentOverride) {
       setMessage("");
     }
@@ -494,14 +532,24 @@ function HomeInner() {
       },
     ]);
     setIsGenerating(true);
-    setGenerationProgress({
+    const jobId = chatJobs.startJob({
+      title: jobTitleFromPrompt(trimmed),
+      caseRef: caseRefFromMatterName(matterForJob),
+    });
+    const onProgress = chatJobs.bindGenerationProgress(jobId, setGenerationProgress);
+    onProgress({
       headline: GENERATION_PHASES[0]?.label ?? "Lexee is thinking…",
       step: 0,
     });
 
     try {
-      await runGenerationPhases(setGenerationProgress, ac.signal);
+      await runGenerationPhases(onProgress, ac.signal);
     } catch {
+      if (ac.signal.aborted) {
+        chatJobs.cancelJob(jobId);
+      } else {
+        chatJobs.failJob(jobId);
+      }
       setIsGenerating(false);
       setGenerationProgress(null);
       generationAbortRef.current = null;
@@ -562,6 +610,7 @@ function HomeInner() {
           assistantReply = llmText ?? fallbackReply;
         } catch {
           if (ac.signal.aborted) {
+            chatJobs.cancelJob(jobId);
             setIsGenerating(false);
             setGenerationProgress(null);
             generationAbortRef.current = null;
@@ -584,6 +633,7 @@ function HomeInner() {
         ...(generatedDocument ? { generatedDocument } : {}),
       },
     ]);
+    chatJobs.completeJob(jobId);
     setIsGenerating(false);
     setGenerationProgress(null);
     generationAbortRef.current = null;
@@ -659,13 +709,21 @@ function HomeInner() {
     docs: DocumentPreview[],
     title: string,
     subtitle?: string,
+    options?: { activeIndex?: number; initialView?: "list" | "preview" },
   ) => {
     if (!docs.length) return;
+    chatJobs.closeJobsPanel();
     setDocumentCollection(docs);
-    setDocumentActiveIndex(0);
+    setDocumentActiveIndex(options?.activeIndex ?? 0);
     setDocumentCollectionTitle(title);
     setDocumentCollectionSubtitle(subtitle);
+    setDocumentPreviewInitialView(options?.initialView);
     setDocumentPreviewOpen(true);
+  };
+
+  const openJobsPanel = () => {
+    setDocumentPreviewOpen(false);
+    chatJobs.openJobsPanel();
   };
 
   const openGeneratedDocumentsPanel = () => {
@@ -674,6 +732,7 @@ function HomeInner() {
       generatedDocuments,
       "Generated documents",
       `${generatedDocuments.length} document${generatedDocuments.length === 1 ? "" : "s"} in this chat`,
+      { initialView: "list" },
     );
   };
 
@@ -690,13 +749,54 @@ function HomeInner() {
     <div className="flex h-[100dvh] min-h-0 w-full min-w-0 flex-1 flex-row overflow-hidden bg-[var(--background)]">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pl-4 pr-6">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="sticky top-0 z-20 shrink-0 bg-[var(--background)] pt-2 pb-3">
+            {chatStarted ? (
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <ChatBreadcrumb
+                    title={chatTitle}
+                    onTitleChange={setChatTitle}
+                    onMarkUnread={() => {
+                      // Prototype: wire unread state when inbox/history sync exists.
+                    }}
+                    onAddToCase={() => {
+                      // Prototype: replace with case picker when Cases is built.
+                      window.prompt("Add to case", "");
+                    }}
+                    onDelete={resetChat}
+                  />
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <ChatDocumentsButton
+                    count={generatedDocuments.length}
+                    onClick={openGeneratedDocumentsPanel}
+                    active={isGeneratedDocumentsPanelOpen}
+                  />
+                  <ChatJobsButton
+                    activeCount={chatJobs.runningCount}
+                    onClick={openJobsPanel}
+                    active={chatJobs.jobsPanelOpen}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-end">
+                <ChatJobsButton
+                  activeCount={chatJobs.runningCount}
+                  onClick={openJobsPanel}
+                  active={chatJobs.jobsPanelOpen}
+                />
+              </div>
+            )}
+          </div>
+
       <AnimatePresence mode="wait" initial={false}>
       {!chatStarted ? (
         <motion.div
           key="chat-empty"
           {...uiFadeSlide(reduceMotion, { enterY: 8, exitY: -10 })}
           transition={uiMotionTransition(reduceMotion, 0.22)}
-          className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto"
+          className="flex min-h-0 flex-1 flex-col justify-center overflow-hidden"
         >
         <div className="mx-auto w-full max-w-3xl pb-16">
           <div className="flex flex-col items-center gap-[38.4px] px-0">
@@ -728,18 +828,12 @@ function HomeInner() {
                   />
                 ) : (
                   <>
-                    <textarea
-                      ref={textareaRef}
-                      rows={1}
+                    <ChatComposerInput
+                      message={message}
+                      onMessageChange={setMessage}
+                      textareaRef={textareaRef}
                       onInput={resizeTextarea}
                       onKeyDown={handleTextareaKeyDown}
-                      value={message}
-                      onChange={(event) => setMessage(event.target.value)}
-                      placeholder="Type @ for case knowledge context"
-                      className="min-h-[48px] w-full flex-1 resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
-                    />
-
-                    <ChatComposerFooter
                       onSend={() => {
                         void sendMessage();
                       }}
@@ -759,30 +853,6 @@ function HomeInner() {
           transition={uiMotionTransition(reduceMotion, 0.34)}
           className="flex min-h-0 w-full min-w-0 flex-1 flex-col"
         >
-          <div className="sticky top-0 z-20 shrink-0 bg-[var(--background)] pt-2 pb-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <ChatBreadcrumb
-                  title={chatTitle}
-                  onTitleChange={setChatTitle}
-                  onMarkUnread={() => {
-                    // Prototype: wire unread state when inbox/history sync exists.
-                  }}
-                  onAddToCase={() => {
-                    // Prototype: replace with case picker when Cases is built.
-                    window.prompt("Add to case", "");
-                  }}
-                  onDelete={resetChat}
-                />
-              </div>
-              <ChatDocumentsButton
-                count={generatedDocuments.length}
-                onClick={openGeneratedDocumentsPanel}
-                active={isGeneratedDocumentsPanelOpen}
-              />
-            </div>
-          </div>
-
           <motion.div
             className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
             initial={reduceMotion ? { opacity: 0 } : { opacity: 0 }}
@@ -886,7 +956,7 @@ function HomeInner() {
                       <button
                         type="button"
                         onClick={() => handleSummonsCategorySelect("MVA")}
-                        className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 px-4 py-3 text-left ui-t-colors hover:border-[color:var(--chat-outline-accent)] hover:bg-violet-50"
+                        className={`flex min-w-0 flex-1 items-center justify-between px-4 py-3 text-left ${UI_CARD_INTERACTIVE}`}
                       >
                         <span className="text-body-md font-medium text-neutral-950">Summons</span>
                         <span className="inline-flex items-center rounded-full border border-[color:var(--chat-outline-accent)] bg-violet-50 px-2 py-1 text-[11px] font-medium leading-4 text-violet-700">
@@ -896,7 +966,7 @@ function HomeInner() {
                       <button
                         type="button"
                         onClick={() => handleSummonsCategorySelect("Slip and Fall")}
-                        className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 px-4 py-3 text-left ui-t-colors hover:border-[color:var(--chat-outline-accent)] hover:bg-violet-50"
+                        className={`flex min-w-0 flex-1 items-center justify-between px-4 py-3 text-left ${UI_CARD_INTERACTIVE}`}
                       >
                         <span className="text-body-md font-medium text-neutral-950">Summons</span>
                         <span className="inline-flex items-center rounded-full border border-[color:var(--chat-outline-accent)] bg-violet-50 px-2 py-1 text-[11px] font-medium leading-4 text-violet-700">
@@ -953,6 +1023,7 @@ function HomeInner() {
                           openDocumentPreview(
                             [
                               createSampleDocumentPreview({
+                                format: "PDF",
                                 editable: true,
                                 isLexeeGenerated: true,
                               }),
@@ -961,25 +1032,20 @@ function HomeInner() {
                             "Generated draft",
                           )
                         }
-                        className="mt-3 w-full rounded-xl border border-[color:var(--chat-outline)] p-3 text-left ui-t-colors hover:border-[color:var(--chat-outline-accent)]"
+                        className={`mt-3 w-full p-3 text-left ${UI_CARD_INTERACTIVE}`}
                       >
-                        <div className="flex items-start gap-3">
-                          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-violet-700">
-                            <FileText className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="flex min-w-0 items-baseline gap-x-1 text-body-md font-medium text-neutral-950">
-                              <span className="shrink-0">Summons for</span>
-                              <span className="min-w-0 flex-1 overflow-hidden">
-                                <MatterTextCrossfade
-                                  display="block"
-                                  text={selectedMatter ?? "this matter"}
-                                  className="truncate font-medium text-neutral-950"
-                                />
-                              </span>
-                            </p>
-                            <p className="mt-0.5 text-[12px] leading-4 text-neutral-600">PDF Document</p>
-                          </div>
+                        <DocumentFormatBadge format="PDF" size="sm" />
+                        <div className="mt-2 flex items-start gap-3">
+                          <p className="flex min-w-0 flex-1 items-baseline gap-x-1 text-body-md font-medium text-neutral-950">
+                            <span className="shrink-0">Summons for</span>
+                            <span className="min-w-0 flex-1 overflow-hidden">
+                              <MatterTextCrossfade
+                                display="block"
+                                text={selectedMatter ?? "this matter"}
+                                className="truncate font-medium text-neutral-950"
+                              />
+                            </span>
+                          </p>
                           <a
                             href="/sampledocument.pdf"
                             download
@@ -1085,18 +1151,12 @@ function HomeInner() {
                 />
               ) : (
                 <>
-                  <textarea
-                    ref={textareaRef}
-                    rows={1}
+                  <ChatComposerInput
+                    message={message}
+                    onMessageChange={setMessage}
+                    textareaRef={textareaRef}
                     onInput={resizeTextarea}
                     onKeyDown={handleTextareaKeyDown}
-                    value={message}
-                    onChange={(event) => setMessage(event.target.value)}
-                    placeholder="Type @ for case knowledge context"
-                    className="min-h-[48px] w-full flex-1 resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
-                  />
-
-                  <ChatComposerFooter
                     onSend={() => {
                       void sendMessage();
                     }}
@@ -1124,6 +1184,7 @@ function HomeInner() {
           activeIndex={documentActiveIndex}
           collectionTitle={documentCollectionTitle}
           collectionSubtitle={documentCollectionSubtitle}
+          initialView={documentPreviewInitialView}
           onSelect={setDocumentActiveIndex}
           onUpdateDocument={(index, next) =>
             setDocumentCollection((prev) =>
@@ -1133,6 +1194,21 @@ function HomeInner() {
           onClose={() => setDocumentPreviewOpen(false)}
         />
         ) : null}
+      </AnimatedPanel>
+
+      <AnimatedPanel open={chatJobs.jobsPanelOpen} className="shrink-0">
+        <JobsPanel
+          open={chatJobs.jobsPanelOpen}
+          jobs={chatJobs.visibleJobs}
+          statusFilter={chatJobs.statusFilter}
+          expandedJobId={chatJobs.expandedJobId}
+          onStatusFilterChange={chatJobs.setStatusFilter}
+          onExpandedJobIdChange={chatJobs.setExpandedJobId}
+          onClose={chatJobs.closeJobsPanel}
+          showCaseFilter
+          caseFilter={chatJobs.caseFilter}
+          onCaseFilterChange={chatJobs.setCaseFilter}
+        />
       </AnimatedPanel>
     </div>
   );

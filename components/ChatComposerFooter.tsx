@@ -1,20 +1,25 @@
 "use client";
 
 import { ArrowUp } from "lucide-react";
+import type { Skill } from "@/app/skills/skills-data";
 import { ChatComposerAddMenu } from "@/components/ChatComposerAddMenu";
 
 type ChatComposerFooterProps = {
   onSend: () => void;
   sendDisabled?: boolean;
+  selectedSkillId?: string | null;
+  onSkillSelect?: (skill: Skill) => void;
 };
 
 export function ChatComposerFooter({
   onSend,
   sendDisabled = false,
+  selectedSkillId = null,
+  onSkillSelect,
 }: ChatComposerFooterProps) {
   return (
     <div className="mt-1.5 flex shrink-0 items-center justify-between">
-      <ChatComposerAddMenu />
+      <ChatComposerAddMenu selectedSkillId={selectedSkillId} onSkillSelect={onSkillSelect} />
       <button
         type="button"
         aria-label="Send message"

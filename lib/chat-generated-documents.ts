@@ -9,7 +9,7 @@ export type ChatGeneratedDocumentSource = {
 export function createSummonsGeneratedDocument(matterName?: string | null): DocumentPreview {
   return createSampleDocumentPreview({
     title: matterName ? `Summons for ${matterName}` : "Summons",
-    subtitle: "PDF Document",
+    format: "PDF",
     editable: true,
     isLexeeGenerated: true,
   });

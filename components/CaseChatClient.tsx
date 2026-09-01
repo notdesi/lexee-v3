@@ -8,11 +8,14 @@ import type { FormEvent, KeyboardEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatedPanel } from "@/components/AnimatedPanel";
 import { CaseChatBreadcrumb } from "@/components/CaseChatBreadcrumb";
-import { ChatComposerFooter } from "@/components/ChatComposerFooter";
+import { ChatComposerInput } from "@/components/ChatComposerInput";
 import { ChatDocumentsButton } from "@/components/ChatDocumentsButton";
+import { ChatJobsButton } from "@/components/ChatJobsButton";
+import { JobsPanel } from "@/components/JobsPanel";
 import { DocumentPreviewPanel, type DocumentPreview } from "@/components/DocumentPreviewPanel";
 import { LexeeResponseEndSymbol } from "@/components/LexeeResponseEndSymbol";
 import { useCaseWorkspace } from "@/hooks/useCaseWorkspace";
+import { useChatJobs } from "@/hooks/useChatJobs";
 import { getDummyChatMessages, getStaticCaseChat } from "@/lib/case-chats";
 import { collectGeneratedDocuments } from "@/lib/chat-generated-documents";
 import { getCaseById } from "@/lib/cases";
@@ -22,6 +25,7 @@ import {
   type CaseChatMessage,
 } from "@/lib/case-workspace";
 import { GENERATION_PHASES, type GenerationProgress, runGenerationPhases } from "@/lib/generation-phases";
+import { caseRefFromCaseRecord, jobTitleFromPrompt } from "@/lib/jobs";
 import { resolvePrototypeAssistantReply } from "@/lib/prototype-chat-reply";
 import { uiMotionTransition } from "@/lib/ui-motion";
 
@@ -64,14 +68,19 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
   const [documentCollectionSubtitle, setDocumentCollectionSubtitle] = useState<
     string | undefined
   >(undefined);
+  const [documentPreviewInitialView, setDocumentPreviewInitialView] = useState<
+    "list" | "preview" | undefined
+  >(undefined);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const generationAbortRef = useRef<AbortController | null>(null);
   const repliedForChatRef = useRef<string | null>(null);
+  const chatJobs = useChatJobs();
 
   useEffect(() => {
     repliedForChatRef.current = null;
-  }, [chatId]);
+    chatJobs.resetJobs();
+  }, [chatId, chatJobs.resetJobs]);
 
   useEffect(() => {
     if (chatMeta?.title) setChatTitle(chatMeta.title);
@@ -116,16 +125,28 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
   );
 
   const openDocumentPreview = useCallback(
-    (docs: DocumentPreview[], title: string, subtitle?: string) => {
+    (
+      docs: DocumentPreview[],
+      title: string,
+      subtitle?: string,
+      options?: { activeIndex?: number; initialView?: "list" | "preview" },
+    ) => {
       if (!docs.length) return;
+      chatJobs.closeJobsPanel();
       setDocumentCollection(docs);
-      setDocumentActiveIndex(0);
+      setDocumentActiveIndex(options?.activeIndex ?? 0);
       setDocumentCollectionTitle(title);
       setDocumentCollectionSubtitle(subtitle);
+      setDocumentPreviewInitialView(options?.initialView);
       setDocumentPreviewOpen(true);
     },
-    [],
+    [chatJobs.closeJobsPanel],
   );
+
+  const openJobsPanel = useCallback(() => {
+    setDocumentPreviewOpen(false);
+    chatJobs.openJobsPanel();
+  }, [chatJobs.openJobsPanel]);
 
   const openGeneratedDocumentsPanel = useCallback(() => {
     if (!generatedDocuments.length) return;
@@ -133,6 +154,7 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
       generatedDocuments,
       "Generated documents",
       `${generatedDocuments.length} document${generatedDocuments.length === 1 ? "" : "s"} in this chat`,
+      { initialView: "list" },
     );
   }, [generatedDocuments, openDocumentPreview]);
 
@@ -150,14 +172,24 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
       generationAbortRef.current = ac;
 
       setIsGenerating(true);
-      setGenerationProgress({
+      const jobId = chatJobs.startJob({
+        title: jobTitleFromPrompt(trimmed),
+        caseRef: caseRefFromCaseRecord(caseRecord),
+      });
+      const onProgress = chatJobs.bindGenerationProgress(jobId, setGenerationProgress);
+      onProgress({
         headline: GENERATION_PHASES[0]?.label ?? "Lexee is thinking…",
         step: 0,
       });
 
       try {
-        await runGenerationPhases(setGenerationProgress, ac.signal);
+        await runGenerationPhases(onProgress, ac.signal);
       } catch {
+        if (ac.signal.aborted) {
+          chatJobs.cancelJob(jobId);
+        } else {
+          chatJobs.failJob(jobId);
+        }
         setIsGenerating(false);
         setGenerationProgress(null);
         generationAbortRef.current = null;
@@ -174,6 +206,7 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
         });
       } catch {
         if (ac.signal.aborted) {
+          chatJobs.cancelJob(jobId);
           setIsGenerating(false);
           setGenerationProgress(null);
           generationAbortRef.current = null;
@@ -190,11 +223,12 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
           content: assistantReply,
         },
       ]);
+      chatJobs.completeJob(jobId);
       setIsGenerating(false);
       setGenerationProgress(null);
       generationAbortRef.current = null;
     },
-    [caseRecord, persistMessages],
+    [caseRecord, persistMessages, chatJobs],
   );
 
   useEffect(() => {
@@ -273,11 +307,18 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
                 chatTitle={chatTitle}
               />
             </div>
-            <ChatDocumentsButton
-              count={generatedDocuments.length}
-              onClick={openGeneratedDocumentsPanel}
-              active={isGeneratedDocumentsPanelOpen}
-            />
+            <div className="flex shrink-0 items-center gap-1">
+              <ChatDocumentsButton
+                count={generatedDocuments.length}
+                onClick={openGeneratedDocumentsPanel}
+                active={isGeneratedDocumentsPanelOpen}
+              />
+              <ChatJobsButton
+                activeCount={chatJobs.runningCount}
+                onClick={openJobsPanel}
+                active={chatJobs.jobsPanelOpen}
+              />
+            </div>
           </div>
         </div>
 
@@ -397,17 +438,12 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
         >
           <div className="mx-auto flex w-[620px] max-w-full min-w-0 flex-col">
             <div className={HOME_CHAT_COMPOSER_CLASS}>
-              <textarea
-                ref={textareaRef}
-                rows={1}
+              <ChatComposerInput
+                message={message}
+                onMessageChange={setMessage}
+                textareaRef={textareaRef}
                 onInput={resizeTextarea}
                 onKeyDown={handleTextareaKeyDown}
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Type @ for case knowledge context"
-                className="min-h-[48px] w-full flex-1 resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
-              />
-              <ChatComposerFooter
                 onSend={() => void sendMessage()}
                 sendDisabled={isSendDisabled}
               />
@@ -427,6 +463,7 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
             activeIndex={documentActiveIndex}
             collectionTitle={documentCollectionTitle}
             collectionSubtitle={documentCollectionSubtitle}
+            initialView={documentPreviewInitialView}
             onSelect={setDocumentActiveIndex}
             onUpdateDocument={(index, next) =>
               setDocumentCollection((prev) => prev.map((doc, i) => (i === index ? next : doc)))
@@ -434,6 +471,18 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
             onClose={() => setDocumentPreviewOpen(false)}
           />
         ) : null}
+      </AnimatedPanel>
+
+      <AnimatedPanel open={chatJobs.jobsPanelOpen} className="shrink-0">
+        <JobsPanel
+          open={chatJobs.jobsPanelOpen}
+          jobs={chatJobs.visibleJobs}
+          statusFilter={chatJobs.statusFilter}
+          expandedJobId={chatJobs.expandedJobId}
+          onStatusFilterChange={chatJobs.setStatusFilter}
+          onExpandedJobIdChange={chatJobs.setExpandedJobId}
+          onClose={chatJobs.closeJobsPanel}
+        />
       </AnimatedPanel>
     </div>
   );

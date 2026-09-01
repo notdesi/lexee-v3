@@ -37,3 +37,9 @@ export const UI_T_TRANSFORM =
 
 export const UI_T_LAYOUT =
   "ui-t-layout motion-reduce:transition-none";
+
+/** Raised card surface — matches Cases page cards. */
+export const UI_CARD_BASE =
+  "rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 shadow-[var(--shadow-card)]";
+
+export const UI_CARD_INTERACTIVE = `${UI_CARD_BASE} ${UI_T_COLORS} hover:border-neutral-300 hover:bg-neutral-100`;

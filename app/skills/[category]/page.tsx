@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MoreHorizontal } from "lucide-react";
 
+import { UI_CARD_INTERACTIVE } from "@/lib/ui-motion";
 import {
   CATEGORY_ORDER,
   CATEGORY_HEADINGS,
@@ -58,7 +59,7 @@ export default async function SkillsCategoryPage({ params }: PageProps) {
             <li key={skill.id}>
               <Link
                 href={`/?skill=${encodeURIComponent(skill.id)}`}
-                className="flex h-full w-full flex-col rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-4 text-left shadow-[var(--shadow-card)] transition-colors hover:border-violet-200 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+                className={`flex h-full w-full flex-col px-4 py-4 text-left ${UI_CARD_INTERACTIVE} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-body-md font-medium text-neutral-950">{skill.title}</span>

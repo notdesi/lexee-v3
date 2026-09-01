@@ -8,10 +8,9 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowUpRight,
   Brain,
-  Briefcase,
   ChevronDown,
   ChevronRight,
-  CircleCheck,
+  LayoutGrid,
   ClipboardList,
   FileText,
   MoreVertical,
@@ -238,7 +237,7 @@ export function SidePanel() {
         label: "Documents",
         icon: FileText,
         onClick: () => {
-          // Prototype: replace with real documents page later.
+          router.push("/documents");
         },
       },
       {
@@ -250,19 +249,11 @@ export function SidePanel() {
         },
       },
       {
-        key: "todo",
-        label: "To-Do",
-        icon: CircleCheck,
+        key: "workspace",
+        label: "Workspace",
+        icon: LayoutGrid,
         onClick: () => {
-          // Prototype: replace with real to-do page later.
-        },
-      },
-      {
-        key: "jobs",
-        label: "Jobs",
-        icon: Briefcase,
-        onClick: () => {
-          // Prototype: replace with real jobs page later.
+          router.push("/workspace");
         },
       },
   ];
@@ -273,14 +264,15 @@ export function SidePanel() {
    */
   const activeNavKey = (() => {
     if (pathname === "/cases" || pathname.startsWith("/cases/")) return "cases";
+    if (pathname === "/documents" || pathname.startsWith("/documents/")) return "documents";
     if (pathname === "/skills" || pathname.startsWith("/skills/")) return "skills";
+    if (pathname === "/workspace" || pathname.startsWith("/workspace/")) return "workspace";
     if (pathname === "/") {
       if (selectedHistoryConversationId) return null;
       if (
         selectedKey === "cases" ||
         selectedKey === "documents" ||
-        selectedKey === "todo" ||
-        selectedKey === "jobs"
+        selectedKey === "workspace"
       ) {
         return selectedKey;
       }
@@ -783,9 +775,15 @@ export function SidePanel() {
           widthTransitionClass,
         ].join(" ")}
       >
-        <div className="flex h-14 shrink-0 items-center">
+        <div
+          className={
+            collapsed
+              ? "flex shrink-0 flex-col items-center pt-3 pb-1"
+              : "flex h-14 shrink-0 items-center"
+          }
+        >
           {collapsed ? (
-            <div className="flex w-full flex-col items-center justify-center gap-0.5 py-1">
+            <div className="flex w-full flex-col items-center gap-0.5">
               <button
                 type="button"
                 className="group inline-flex h-9 w-9 items-center justify-center rounded-md text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950 ui-t-colors"

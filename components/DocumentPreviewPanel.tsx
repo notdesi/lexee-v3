@@ -2,15 +2,41 @@
 
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, ExternalLink, Upload, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { DocumentFormatBadge } from "@/components/DocumentFormatBadge";
+import { inferDocumentFormat } from "@/lib/document-format";
+import { UI_CARD_INTERACTIVE } from "@/lib/ui-motion";
 
 export type DocumentPreview = {
   title: string;
   subtitle?: string;
+  format?: string;
   body: string;
   src?: string;
   editable?: boolean;
   isLexeeGenerated?: boolean;
 };
+
+function DocumentPreviewMeta({
+  doc,
+  className,
+}: {
+  doc: DocumentPreview;
+  className?: string;
+}) {
+  const format = doc.format ?? inferDocumentFormat(doc.subtitle);
+
+  if (format) {
+    return <DocumentFormatBadge format={format} size="sm" className={className} />;
+  }
+
+  if (!doc.subtitle) return null;
+
+  return (
+    <span className={["font-inter text-[11.5px] leading-4 text-neutral-500", className].join(" ")}>
+      {doc.subtitle}
+    </span>
+  );
+}
 
 type DocumentPreviewPanelProps = {
   open: boolean;
@@ -18,6 +44,7 @@ type DocumentPreviewPanelProps = {
   activeIndex: number;
   collectionTitle?: string;
   collectionSubtitle?: string;
+  initialView?: "list" | "preview";
   onSelect: (index: number) => void;
   onUpdateDocument?: (index: number, next: DocumentPreview) => void;
   onClose: () => void;
@@ -29,13 +56,15 @@ export function DocumentPreviewPanel({
   activeIndex,
   collectionTitle,
   collectionSubtitle,
+  initialView,
   onSelect,
   onUpdateDocument,
   onClose,
 }: DocumentPreviewPanelProps) {
   const documentSetKey = documents.map((d) => d.title).join("\u0000");
   const syncKey = `${open}:${documentSetKey}:${documents.length}`;
-  const derivedViewDefault = documents.length > 1 ? "list" : "preview";
+  const derivedViewDefault =
+    initialView ?? (documents.length > 1 ? "list" : "preview");
   const [view, setView] = useState<"list" | "preview">(derivedViewDefault);
   const [lastSyncKey, setLastSyncKey] = useState(syncKey);
 
@@ -55,14 +84,15 @@ export function DocumentPreviewPanel({
 
   const hasMultiple = documents.length > 1;
   const active = documents[activeIndex] ?? documents[0] ?? null;
-  const showPreview = !hasMultiple || view === "preview";
+  const showPreview = view === "preview";
 
   const widthClass = "w-[clamp(487px,45.24vw,661px)]";
   const canDownloadFromSrc = Boolean(active?.src);
   const canUploadToCloud = Boolean(active?.isLexeeGenerated);
 
-  const eyebrowLabel =
-    hasMultiple && !showPreview ? collectionTitle ?? "Documents" : collectionTitle ?? "Document preview";
+  const eyebrowLabel = !showPreview
+    ? collectionTitle ?? "Documents"
+    : collectionTitle ?? "Document preview";
   const showEyebrow = collectionTitle !== "Sources";
 
   const handleDownloadTextDocument = () => {
@@ -106,9 +136,7 @@ export function DocumentPreviewPanel({
               </p>
             ) : null}
             <p className="truncate font-inter text-[14px] font-medium leading-5 text-neutral-950">
-              {hasMultiple && !showPreview
-                ? "Select a document"
-                : active?.title ?? "—"}
+              {!showPreview ? "Select a document" : active?.title ?? "—"}
             </p>
           </div>
           <button
@@ -122,7 +150,7 @@ export function DocumentPreviewPanel({
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden bg-neutral-100">
-          {hasMultiple && !showPreview ? (
+          {!showPreview ? (
             <div className="h-full overflow-y-auto px-3 py-3">
               <ul className="space-y-1">
                 {documents.map((doc, index) => (
@@ -133,16 +161,19 @@ export function DocumentPreviewPanel({
                         onSelect(index);
                         setView("preview");
                       }}
-                      className="flex w-full flex-col rounded-lg border border-neutral-200 bg-[var(--surface-elevated)] px-3 py-2.5 text-left shadow-[var(--shadow-card)] transition-colors hover:border-neutral-300 hover:bg-[var(--surface-elevated-hover)]"
+                      className={`flex w-full flex-col px-3 py-2.5 text-left ${UI_CARD_INTERACTIVE}`}
                     >
-                      <span className="font-inter text-[13px] font-medium leading-5 text-neutral-950">
+                      {doc.subtitle || doc.format ? (
+                        <DocumentPreviewMeta doc={doc} />
+                      ) : null}
+                      <span
+                        className={[
+                          "font-inter text-[13px] font-medium leading-5 text-neutral-950",
+                          doc.subtitle || doc.format ? "mt-1.5" : "",
+                        ].join(" ")}
+                      >
                         {doc.title}
                       </span>
-                      {doc.subtitle ? (
-                        <span className="mt-0.5 font-inter text-[11.5px] leading-4 text-neutral-500">
-                          {doc.subtitle}
-                        </span>
-                      ) : null}
                     </button>
                   </li>
                 ))}
@@ -160,15 +191,18 @@ export function DocumentPreviewPanel({
               <div className="h-full overflow-y-auto px-4 py-4">
                 <article className="mx-auto w-full max-w-[640px] rounded-md border border-neutral-200 bg-[var(--surface-elevated)] px-8 py-8 shadow-[var(--shadow-card)]">
                   <header className="mb-5 border-b border-neutral-200 pb-4">
-                    <h2 className="font-inter text-[15px] font-semibold leading-5 tracking-[-0.01em] text-neutral-950">
+                    {active.subtitle || active.format ? (
+                      <DocumentPreviewMeta doc={active} />
+                    ) : null}
+                    <h2
+                      className={[
+                        "font-inter text-[15px] font-semibold leading-5 tracking-[-0.01em] text-neutral-950",
+                        active.subtitle || active.format ? "mt-2" : "",
+                      ].join(" ")}
+                    >
                       {active.title}
                     </h2>
-                    {active.subtitle ? (
-                      <p className="mt-1 font-inter text-[11.5px] leading-4 text-neutral-500">
-                        {active.subtitle}
-                      </p>
-                    ) : null}
-                    {collectionSubtitle && !active.subtitle ? (
+                    {collectionSubtitle && !active.subtitle && !active.format ? (
                       <p className="mt-1 font-inter text-[11.5px] leading-4 text-neutral-500">
                         {collectionSubtitle}
                       </p>

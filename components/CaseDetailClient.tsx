@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatedPopover } from "@/components/AnimatedPopover";
 import { CaseBreadcrumb } from "@/components/CaseBreadcrumb";
 import { CaseChatClient } from "@/components/CaseChatClient";
-import { ChatComposerFooter } from "@/components/ChatComposerFooter";
+import { ChatComposerInput } from "@/components/ChatComposerInput";
 import { useCaseWorkspace } from "@/hooks/useCaseWorkspace";
 import { getCaseChats, type CaseChatEntry } from "@/lib/case-chats";
 import { getCaseChatHref } from "@/lib/case-chat-routes";
@@ -277,18 +277,15 @@ export function CaseDetailClient({ caseId }: CaseDetailClientProps) {
 
         <div className="mx-auto mt-10 w-full max-w-[620px]">
           <div className={CASE_CHAT_COMPOSER_CLASS}>
-            <textarea
-              ref={textareaRef}
-              rows={1}
+            <ChatComposerInput
+              message={message}
+              onMessageChange={setMessage}
+              textareaRef={textareaRef}
               onInput={resizeTextarea}
               onKeyDown={handleTextareaKeyDown}
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              placeholder="Type @ for case knowledge context"
-              className="min-h-[48px] w-full flex-1 resize-none overflow-hidden bg-transparent text-body-lg text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
+              onSend={sendMessage}
+              sendDisabled={isSendDisabled}
             />
-
-            <ChatComposerFooter onSend={sendMessage} sendDisabled={isSendDisabled} />
           </div>
 
           <section className="mt-12 w-full">

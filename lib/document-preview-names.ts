@@ -66,7 +66,7 @@ export function pickUniqueDocumentNames(count: number): string[] {
 }
 
 export const SAMPLE_DOCUMENT_PREVIEW_BASE: Omit<DocumentPreview, "title"> = {
-  subtitle: "PDF Document",
+  format: "PDF",
   body: "",
   src: "/sampledocument.pdf",
 };

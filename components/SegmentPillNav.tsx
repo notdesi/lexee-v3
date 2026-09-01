@@ -3,13 +3,17 @@
 type SegmentPillNavOption<T extends string> = {
   value: T;
   label: string;
+  count?: number;
 };
+
+type SegmentPillNavVariant = "segment" | "chip";
 
 type SegmentPillNavProps<T extends string> = {
   options: readonly SegmentPillNavOption<T>[];
   value: T;
   onChange: (value: T) => void;
   ariaLabel?: string;
+  variant?: SegmentPillNavVariant;
 };
 
 export function SegmentPillNav<T extends string>({
@@ -17,9 +21,17 @@ export function SegmentPillNav<T extends string>({
   value,
   onChange,
   ariaLabel = "Section navigation",
+  variant = "segment",
 }: SegmentPillNavProps<T>) {
   return (
-    <div className="flex flex-wrap items-center gap-4" role="tablist" aria-label={ariaLabel}>
+    <div
+      className={[
+        "flex flex-wrap items-center",
+        variant === "chip" ? "gap-2" : "gap-4",
+      ].join(" ")}
+      role="tablist"
+      aria-label={ariaLabel}
+    >
       {options.map((option) => {
         const isActive = option.value === value;
         return (
@@ -30,13 +42,23 @@ export function SegmentPillNav<T extends string>({
             aria-selected={isActive}
             onClick={() => onChange(option.value)}
             className={[
-              "rounded-lg px-3 py-1.5 text-[14px] leading-[22px] ui-t-colors",
-              isActive
-                ? "bg-neutral-200 font-medium text-neutral-950"
-                : "font-normal text-neutral-600 hover:text-neutral-900",
+              "ui-t-colors",
+              variant === "chip"
+                ? [
+                    "rounded-full border px-2.5 py-1 text-[12px] leading-4",
+                    isActive
+                      ? "border-neutral-300 bg-neutral-200 font-medium text-neutral-950"
+                      : "border-[color:var(--chat-outline)] bg-neutral-50 font-normal text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100 hover:text-neutral-900",
+                  ].join(" ")
+                : [
+                    "rounded-lg px-3 py-1.5 text-[14px] leading-[22px]",
+                    isActive
+                      ? "bg-neutral-200 font-medium text-neutral-950"
+                      : "font-normal text-neutral-600 hover:text-neutral-900",
+                  ].join(" "),
             ].join(" ")}
           >
-            {option.label}
+            {option.count != null ? `${option.label} (${option.count})` : option.label}
           </button>
         );
       })}

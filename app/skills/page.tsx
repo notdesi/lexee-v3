@@ -1,15 +1,15 @@
 "use client";
 
-import { MoreHorizontal, Search } from "lucide-react";
+import { MoreHorizontal, Search, X } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { UI_CARD_INTERACTIVE } from "@/lib/ui-motion";
 import {
   CATEGORY_HEADINGS,
   CATEGORY_ORDER,
   RECENT_PER_CATEGORY,
   SKILLS,
-  categoryToSlug,
   formatCreatedOn,
   mostRecentSkills,
   type Skill,
@@ -17,6 +17,18 @@ import {
 
 export default function SkillsPage() {
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(true);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  const clearSearch = () => {
+    setQuery("");
+    searchInputRef.current?.focus();
+  };
 
   const sections = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -41,51 +53,59 @@ export default function SkillsPage() {
               Skills
             </h1>
             <p className="mt-2 text-body-md-secondary">
-              You can select a skill to chat with it or create a new skill.
+              Select a skill to chat with it.
             </p>
           </div>
 
-          <button
-            type="button"
-            disabled
-            className="inline-flex h-10 items-center justify-center rounded-full bg-[var(--button-primary-disabled-bg)] px-4 text-body-md text-[var(--button-primary-disabled-fg)] disabled:cursor-not-allowed"
-            aria-label="Create new skill"
-          >
-            New Skill
-          </button>
-        </div>
-
-        <div className="mt-8">
-          <label htmlFor="skills-search" className="sr-only">
-            Search skills
-          </label>
-          <div className="flex h-11 items-center gap-2 rounded-xl border border-neutral-300 bg-neutral-50 px-3 shadow-[var(--shadow-card)]">
-            <Search className="h-4 w-4 shrink-0 text-neutral-500" strokeWidth={1.75} />
-            <input
-              id="skills-search"
-              type="text"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search skills"
-              className="w-full bg-transparent text-body-md text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
-            />
+          <div className="flex shrink-0 items-center gap-1">
+            {searchOpen ? (
+              <div className="flex h-9 w-[min(100vw-12rem,240px)] items-center gap-1.5 rounded-lg border border-[color:var(--chat-outline)] bg-neutral-50 px-2 shadow-[var(--shadow-subtle)] ui-t-layout">
+                <Search className="h-4 w-4 shrink-0 text-neutral-500" strokeWidth={1.75} />
+                <label htmlFor="skills-search" className="sr-only">
+                  Search skills
+                </label>
+                <input
+                  id="skills-search"
+                  ref={searchInputRef}
+                  type="text"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape" && query) clearSearch();
+                  }}
+                  placeholder="Search skills"
+                  className="min-w-0 flex-1 bg-transparent text-body-md text-neutral-950 placeholder:text-neutral-500 focus:outline-none"
+                />
+                {query ? (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={clearSearch}
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-neutral-600 ui-t-colors hover:bg-neutral-200/80 hover:text-neutral-950"
+                  >
+                    <X className="h-4 w-4" strokeWidth={1.75} />
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <button
+                type="button"
+                aria-label="Search skills"
+                onClick={() => setSearchOpen(true)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-neutral-700 ui-t-colors hover:bg-neutral-200/80 hover:text-neutral-950"
+              >
+                <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              </button>
+            )}
           </div>
         </div>
 
         <div className="mt-10 flex flex-col gap-10">
           {sections.map(({ category, skills }) => (
             <section key={category} aria-labelledby={`skills-section-${category}`}>
-              <div className="flex items-center justify-between gap-4">
-                <h2 id={`skills-section-${category}`} className="text-sm font-medium text-neutral-600">
-                  {CATEGORY_HEADINGS[category]}
-                </h2>
-                <Link
-                  href={`/skills/${categoryToSlug(category)}`}
-                  className="shrink-0 text-body-md font-medium text-violet-600 hover:text-violet-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-                >
-                  See all
-                </Link>
-              </div>
+              <h2 id={`skills-section-${category}`} className="text-sm font-medium text-neutral-600">
+                {CATEGORY_HEADINGS[category]}
+              </h2>
               {skills.length === 0 ? (
                 <p className="mt-3 text-body-md text-neutral-600">No matching skills in this category.</p>
               ) : (
@@ -94,7 +114,7 @@ export default function SkillsPage() {
                     <li key={skill.id}>
                       <Link
                         href={`/?skill=${encodeURIComponent(skill.id)}`}
-                        className="flex h-full w-full flex-col rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-4 text-left shadow-[var(--shadow-card)] transition-colors hover:border-violet-200 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+                        className={`flex h-full w-full flex-col px-4 py-4 text-left ${UI_CARD_INTERACTIVE} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <span className="text-body-md font-medium text-neutral-950">{skill.title}</span>

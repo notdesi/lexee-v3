@@ -35,6 +35,22 @@ const menuItemClass =
 const MAIN_MENU_WIDTH = 200;
 const SKILLS_MENU_WIDTH = 216;
 const MENU_GAP = 6;
+const VIEWPORT_PADDING = 8;
+const MAIN_MENU_ESTIMATED_HEIGHT = 280;
+const SKILLS_MENU_ESTIMATED_HEIGHT = 288;
+
+function prefersOpeningUpward(anchorRect: DOMRect, menuHeight: number): boolean {
+  const height = menuHeight || MAIN_MENU_ESTIMATED_HEIGHT;
+  const spaceBelow = window.innerHeight - anchorRect.bottom - MENU_GAP - VIEWPORT_PADDING;
+  const spaceAbove = anchorRect.top - MENU_GAP - VIEWPORT_PADDING;
+  return spaceBelow < height && spaceAbove > spaceBelow;
+}
+
+function clampMenuTop(anchorTop: number, menuHeight: number): number {
+  const height = menuHeight || SKILLS_MENU_ESTIMATED_HEIGHT;
+  const maxTop = window.innerHeight - VIEWPORT_PADDING - height;
+  return Math.max(VIEWPORT_PADDING, Math.min(anchorTop, maxTop));
+}
 
 const preventFocusSteal = (event: ReactMouseEvent) => {
   event.preventDefault();
@@ -110,6 +126,8 @@ export function ChatComposerAddMenu({
   const menuRef = useRef<HTMLDivElement | null>(null);
   const plusButtonRef = useRef<HTMLButtonElement | null>(null);
   const skillsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mainMenuRef = useRef<HTMLDivElement | null>(null);
+  const skillsMenuRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const updateMenuPositions = useCallback(() => {
@@ -117,9 +135,14 @@ export function ChatComposerAddMenu({
     if (!plusButton) return;
 
     const plusRect = plusButton.getBoundingClientRect();
+    const mainMenuHeight = mainMenuRef.current?.offsetHeight ?? 0;
+    const openMainMenuUpward = prefersOpeningUpward(plusRect, mainMenuHeight);
+
     setMainMenuStyle({
       position: "fixed",
-      top: plusRect.bottom + MENU_GAP,
+      ...(openMainMenuUpward
+        ? { bottom: window.innerHeight - plusRect.top + MENU_GAP }
+        : { top: plusRect.bottom + MENU_GAP }),
       left: plusRect.left,
       width: MAIN_MENU_WIDTH,
       zIndex: 60,
@@ -129,10 +152,12 @@ export function ChatComposerAddMenu({
     if (!skillsButton) return;
 
     const skillsRect = skillsButton.getBoundingClientRect();
-    const openToRight = skillsRect.right + MENU_GAP + SKILLS_MENU_WIDTH <= window.innerWidth - 8;
+    const skillsMenuHeight = skillsMenuRef.current?.offsetHeight ?? 0;
+    const openToRight =
+      skillsRect.right + MENU_GAP + SKILLS_MENU_WIDTH <= window.innerWidth - VIEWPORT_PADDING;
     setSkillsMenuStyle({
       position: "fixed",
-      top: skillsRect.top,
+      top: clampMenuTop(skillsRect.top, skillsMenuHeight),
       left: openToRight
         ? skillsRect.right + MENU_GAP
         : skillsRect.left - MENU_GAP - SKILLS_MENU_WIDTH,
@@ -144,6 +169,15 @@ export function ChatComposerAddMenu({
   useLayoutEffect(() => {
     if (!menuOpen) return;
     updateMenuPositions();
+
+    const menus = [mainMenuRef.current, skillsMenuRef.current].filter(
+      (menu): menu is HTMLDivElement => menu !== null,
+    );
+    if (menus.length === 0) return;
+
+    const observer = new ResizeObserver(() => updateMenuPositions());
+    menus.forEach((menu) => observer.observe(menu));
+    return () => observer.disconnect();
   }, [menuOpen, skillsOpen, updateMenuPositions]);
 
   useEffect(() => {
@@ -166,10 +200,12 @@ export function ChatComposerAddMenu({
 
     document.addEventListener("click", handleClickOutside);
     window.addEventListener("resize", updateMenuPositions);
+    window.addEventListener("scroll", updateMenuPositions, true);
 
     return () => {
       document.removeEventListener("click", handleClickOutside);
       window.removeEventListener("resize", updateMenuPositions);
+      window.removeEventListener("scroll", updateMenuPositions, true);
     };
   }, [menuOpen, updateMenuPositions]);
 
@@ -212,13 +248,13 @@ export function ChatComposerAddMenu({
   const mainMenu =
     menuOpen && typeof document !== "undefined"
       ? createPortal(
-          <AnimatedPopover
-            open
-            variant="fade"
-            className="overflow-hidden rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-1.5 shadow-[var(--shadow-popup)]"
-            style={mainMenuStyle}
-          >
-            <div role="menu" data-composer-menu>
+          <div ref={mainMenuRef} style={mainMenuStyle}>
+            <AnimatedPopover
+              open
+              variant="fade"
+              className="overflow-hidden rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-1.5 shadow-[var(--shadow-popup)]"
+            >
+              <div role="menu" data-composer-menu>
               {MODE_OPTIONS.map((config) => {
                 const ModeIcon = config.icon;
                 return (
@@ -265,8 +301,9 @@ export function ChatComposerAddMenu({
                 <span className="min-w-0 flex-1">Skills</span>
                 <ChevronRight className="h-4 w-4 shrink-0 text-neutral-500" strokeWidth={1.75} />
               </button>
-            </div>
-          </AnimatedPopover>,
+              </div>
+            </AnimatedPopover>
+          </div>,
           document.body,
         )
       : null;
@@ -274,13 +311,13 @@ export function ChatComposerAddMenu({
   const skillsMenu =
     menuOpen && skillsOpen && typeof document !== "undefined"
       ? createPortal(
-          <AnimatedPopover
-            open
-            variant="fade"
-            className="max-h-[min(18rem,calc(100dvh-5rem))] overflow-y-auto rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-1.5 shadow-[var(--shadow-popup)]"
-            style={skillsMenuStyle}
-          >
-            <div role="menu" data-composer-skills-menu>
+          <div ref={skillsMenuRef} style={skillsMenuStyle}>
+            <AnimatedPopover
+              open
+              variant="fade"
+              className="max-h-[min(18rem,calc(100dvh-5rem))] overflow-y-auto rounded-xl border border-[color:var(--chat-outline)] bg-neutral-50 p-1.5 shadow-[var(--shadow-popup)]"
+            >
+              <div role="menu" data-composer-skills-menu>
               {COMPOSER_SKILLS.map((skill) => (
                 <button
                   key={skill.id}
@@ -304,8 +341,9 @@ export function ChatComposerAddMenu({
               >
                 View all skills
               </Link>
-            </div>
-          </AnimatedPopover>,
+              </div>
+            </AnimatedPopover>
+          </div>,
           document.body,
         )
       : null;

@@ -41,10 +41,9 @@ const saveButtonClassName = [
 ].join(" ");
 
 const approvalButtonClassName = [
-  "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-3",
-  "bg-[var(--button-primary-bg)] text-[12.5px] font-medium text-[var(--button-primary-fg)]",
+  "inline-flex items-center gap-1.5 text-[12.5px] font-medium text-violet-700",
   UI_T_COLORS,
-  "hover:bg-[var(--button-primary-hover)]",
+  "hover:text-violet-900 hover:underline underline-offset-2",
 ].join(" ");
 
 export function ChatGeneratedDocumentCard({
@@ -179,7 +178,7 @@ export function ChatGeneratedDocumentCard({
           </div>
         </div>
 
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex justify-start">
           <button
             type="button"
             onClick={onSendForApproval}

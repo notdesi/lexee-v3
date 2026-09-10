@@ -183,10 +183,10 @@ export function ChatGeneratedDocumentCard({
             type="button"
             onClick={onSendForApproval}
             className={approvalButtonClassName}
-            aria-label="Send for expert approval"
+            aria-label="Expert Human Review"
           >
             <UserRoundCheck className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Send for expert approval
+            Expert Human Review
           </button>
         </div>
       </div>

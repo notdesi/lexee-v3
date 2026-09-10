@@ -71,7 +71,7 @@ export function ChatGeneratedDocumentCard({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s") return;
       const root = cardRef.current;
-      if (!root || !root.contains(document.activeElement)) return;
+      if (!root || !root.contains(globalThis.document.activeElement)) return;
       if (saved || !onSave) return;
       event.preventDefault();
       onSave();

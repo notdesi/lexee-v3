@@ -3,7 +3,6 @@
 import Image from "next/image";
 import {
   Copy,
-  Download,
   Pencil,
   RotateCcw,
   Share2,
@@ -16,6 +15,7 @@ import { ChatCaseSelector } from "@/components/ChatCaseSelector";
 import { ChatComposerInput } from "@/components/ChatComposerInput";
 import { ChatDocumentsButton } from "@/components/ChatDocumentsButton";
 import { ChatJobsButton } from "@/components/ChatJobsButton";
+import { ChatGeneratedDocumentCard } from "@/components/ChatGeneratedDocumentCard";
 import { ChatTaskDemoCard } from "@/components/ChatTaskDemoCard";
 import { JobsPanel } from "@/components/JobsPanel";
 import { uiFadeSlide, uiMotionTransition, UI_CARD_INTERACTIVE } from "@/lib/ui-motion";
@@ -23,7 +23,6 @@ import type { FormEvent, KeyboardEvent } from "react";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LexeeResponseEndSymbol } from "@/components/LexeeResponseEndSymbol";
 import { MedicalSummaryDemoResponse } from "@/components/MedicalSummaryDemoResponse";
-import { DocumentFormatBadge } from "@/components/DocumentFormatBadge";
 import { DocumentPreviewPanel, type DocumentPreview } from "@/components/DocumentPreviewPanel";
 import { VoiceListeningPanel } from "@/components/VoiceListeningPanel";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
@@ -31,8 +30,10 @@ import { useChatJobs } from "@/hooks/useChatJobs";
 import { createSampleDocumentPreview } from "@/lib/document-preview-names";
 import {
   collectGeneratedDocuments,
+  createDraftPetitionGeneratedDocument,
   createMedicalSummaryGeneratedDocument,
   createSummonsGeneratedDocument,
+  DRAFT_PETITION_FILE_NAME,
 } from "@/lib/chat-generated-documents";
 import {
   GENERATION_PHASES,
@@ -48,6 +49,7 @@ import {
   SUMMONS_ADDITIONAL_INSTRUCTIONS_RESPONSE,
   SUMMONS_DEMO_PROMPT,
   SUMMONS_SKILL_ID,
+  isDocumentKeywordPrompt,
   isMedicalSummaryRequestPrompt,
   isSummonsDocumentRequestPrompt,
   shouldShowMedicalSummaryDemo,
@@ -90,6 +92,7 @@ type ChatMessage = {
   presentation?:
     | "medical_summary_demo"
     | "summons_document_demo"
+    | "draft_document_demo"
     | "summons_skill_cards"
     | "summons_additional_instructions"
     | "medical_summary_additional_instructions"
@@ -185,45 +188,6 @@ const HISTORY_CONVERSATIONS: Record<string, HistoryConversation> = {
     ],
   },
 };
-
-function MatterTextCrossfade({
-  text,
-  className,
-  display = "inline",
-}: {
-  text: string;
-  className?: string;
-  display?: "block" | "inline";
-}) {
-  const reduceMotion = useReducedMotion();
-  const isBlock = display === "block";
-
-  return (
-    <span
-      className={[
-        isBlock ? "relative block min-w-0 w-full overflow-hidden" : "inline",
-      ].join(" ")}
-    >
-      <AnimatePresence initial={false}>
-        <motion.span
-          key={text}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={uiMotionTransition(reduceMotion, 0.15)}
-          className={[
-            isBlock ? "block truncate" : "inline",
-            className,
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          {text}
-        </motion.span>
-      </AnimatePresence>
-    </span>
-  );
-}
 
 const HOME_CHAT_SHELL_CLASS =
   "flex w-[620px] max-w-full flex-col rounded-[26px] border border-violet-100 bg-violet-50 p-1.5 shadow-[var(--shadow-chatbox)] ui-t-layout";
@@ -631,6 +595,7 @@ function HomeInner() {
           skillId: composerSkillIdAtSend,
         })
       : null;
+    const useDraftDocumentDemo = isDocumentKeywordPrompt(effectiveContent);
     const useSummonsDocumentDemo = shouldShowSummonsDocumentDemo(
       effectiveContent,
       latestAssistantMessage?.presentation,
@@ -655,6 +620,10 @@ function HomeInner() {
       assistantReply = taskDemoReply.content;
       presentation = taskDemoReply.presentation as ChatMessage["presentation"];
       generatedTask = taskDemoReply.generatedTask;
+    } else if (useDraftDocumentDemo) {
+      assistantReply = "Drafting successfully completed.";
+      presentation = "draft_document_demo";
+      generatedDocument = createDraftPetitionGeneratedDocument();
     } else if (useSummonsDocumentDemo) {
       assistantReply = "Here is your Summons document";
       presentation = "summons_document_demo";
@@ -1151,52 +1120,95 @@ function HomeInner() {
                     </div>
                     <LexeeResponseEndSymbol visible={isLexeeEndSymbolVisible(messageIndex)} />
                   </div>
+                ) : chatMessage.presentation === "draft_document_demo" ||
+                  chatMessage.presentation === "summons_document_demo" ? (
+                  <div key={chatMessage.id} className="group max-w-[90%]">
+                    {chatMessage.content ? (
+                      <p className="whitespace-pre-wrap text-response-md text-neutral-950">
+                        {chatMessage.content}
+                      </p>
+                    ) : null}
+                    <ChatGeneratedDocumentCard
+                      document={
+                        chatMessage.generatedDocument ??
+                        (chatMessage.presentation === "summons_document_demo"
+                          ? createSummonsGeneratedDocument(selectedMatter)
+                          : createDraftPetitionGeneratedDocument())
+                      }
+                      fileName={
+                        chatMessage.presentation === "draft_document_demo"
+                          ? DRAFT_PETITION_FILE_NAME
+                          : undefined
+                      }
+                      showIntro={chatMessage.presentation === "draft_document_demo"}
+                      saved={chatMessage.cloudLexSynced}
+                      onView={() => {
+                        const doc =
+                          chatMessage.generatedDocument ??
+                          (chatMessage.presentation === "summons_document_demo"
+                            ? createSummonsGeneratedDocument(selectedMatter)
+                            : createDraftPetitionGeneratedDocument());
+                        openDocumentPreview(
+                          [doc],
+                          chatMessage.presentation === "summons_document_demo"
+                            ? "Summons document"
+                            : "Draft document",
+                          "Generated draft",
+                        );
+                      }}
+                      onSave={() => markTaskSynced(chatMessage.id)}
+                      onRegenerate={() => handleRetryResponse(messageIndex)}
+                    />
+                    <div
+                      className={[
+                        "mt-1 flex h-6 items-center gap-1 text-neutral-500 ui-t-opacity",
+                        messageIndex === lastAssistantMessageIndex
+                          ? "opacity-100"
+                          : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
+                      ].join(" ")}
+                    >
+                      <button
+                        type="button"
+                        aria-label="Copy response"
+                        onClick={() => {
+                          void handleCopyMessage(
+                            chatMessage.content ||
+                              chatMessage.generatedDocument?.title ||
+                              "Generated document",
+                          );
+                        }}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Retry response"
+                        onClick={() => handleRetryResponse(messageIndex)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Share response"
+                        onClick={() => {
+                          void handleShareMessage(
+                            chatMessage.content ||
+                              chatMessage.generatedDocument?.title ||
+                              "Generated document",
+                          );
+                        }}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                      >
+                        <Share2 className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      </button>
+                    </div>
+                    <LexeeResponseEndSymbol visible={isLexeeEndSymbolVisible(messageIndex)} />
+                  </div>
                 ) : (
                   <div key={chatMessage.id} className="group max-w-[90%]">
                     <p className="whitespace-pre-wrap text-response-md text-neutral-950">{chatMessage.content}</p>
-                    {chatMessage.presentation === "summons_document_demo" ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openDocumentPreview(
-                            [
-                              createSampleDocumentPreview({
-                                format: "PDF",
-                                editable: true,
-                                isLexeeGenerated: true,
-                              }),
-                            ],
-                            "Summons document",
-                            "Generated draft",
-                          )
-                        }
-                        className={`mt-3 w-full p-3 text-left ${UI_CARD_INTERACTIVE}`}
-                      >
-                        <DocumentFormatBadge format="PDF" size="sm" />
-                        <div className="mt-2 flex items-start gap-3">
-                          <p className="flex min-w-0 flex-1 items-baseline gap-x-1 text-body-md font-medium text-neutral-950">
-                            <span className="shrink-0">Summons for</span>
-                            <span className="min-w-0 flex-1 overflow-hidden">
-                              <MatterTextCrossfade
-                                display="block"
-                                text={selectedMatter ?? "this matter"}
-                                className="truncate font-medium text-neutral-950"
-                              />
-                            </span>
-                          </p>
-                          <a
-                            href="/sampledocument.pdf"
-                            download
-                            onClick={(event) => event.stopPropagation()}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950"
-                            aria-label="Download summons document"
-                            title="Download"
-                          >
-                            <Download className="h-4 w-4" strokeWidth={1.75} />
-                          </a>
-                        </div>
-                      </button>
-                    ) : null}
                     <div
                       className={[
                         "mt-1 flex h-6 items-center gap-1 text-neutral-500 ui-t-opacity",

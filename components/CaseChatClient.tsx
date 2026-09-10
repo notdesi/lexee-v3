@@ -11,6 +11,7 @@ import { CaseChatBreadcrumb } from "@/components/CaseChatBreadcrumb";
 import { ChatComposerInput } from "@/components/ChatComposerInput";
 import { ChatDocumentsButton } from "@/components/ChatDocumentsButton";
 import { ChatJobsButton } from "@/components/ChatJobsButton";
+import { ChatGeneratedDocumentCard } from "@/components/ChatGeneratedDocumentCard";
 import { ChatTaskDemoCard } from "@/components/ChatTaskDemoCard";
 import { JobsPanel } from "@/components/JobsPanel";
 import { DocumentPreviewPanel, type DocumentPreview } from "@/components/DocumentPreviewPanel";
@@ -18,7 +19,11 @@ import { LexeeResponseEndSymbol } from "@/components/LexeeResponseEndSymbol";
 import { useCaseWorkspace } from "@/hooks/useCaseWorkspace";
 import { useChatJobs } from "@/hooks/useChatJobs";
 import { getDummyChatMessages, getStaticCaseChat } from "@/lib/case-chats";
-import { collectGeneratedDocuments } from "@/lib/chat-generated-documents";
+import {
+  collectGeneratedDocuments,
+  createDraftPetitionGeneratedDocument,
+  DRAFT_PETITION_FILE_NAME,
+} from "@/lib/chat-generated-documents";
 import { getCaseById } from "@/lib/cases";
 import {
   getSessionChatById,
@@ -29,6 +34,7 @@ import { GENERATION_PHASES, type GenerationProgress, runGenerationPhases } from 
 import { caseRefFromCaseRecord, jobTitleFromPrompt } from "@/lib/jobs";
 import { resolvePrototypeAssistantReply } from "@/lib/prototype-chat-reply";
 import { resolveScriptedDemoReply } from "@/lib/scripted-chat-demo";
+import { isDocumentKeywordPrompt } from "@/lib/skill-launches";
 import {
   isTaskCreationComposerTrigger,
   TASK_DEMO_PROMPT,
@@ -212,6 +218,7 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
       let assistantReply: string;
       let presentation: string | undefined;
       let generatedTask: CaseChatMessage["generatedTask"];
+      let generatedDocument: CaseChatMessage["generatedDocument"];
 
       const latestAssistantMessage = [...messagesIncludingLatestUser]
         .slice(0, -1)
@@ -237,6 +244,10 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
         assistantReply = demoReply.content;
         presentation = demoReply.presentation;
         generatedTask = demoReply.generatedTask;
+      } else if (isDocumentKeywordPrompt(trimmed)) {
+        assistantReply = "Drafting successfully completed.";
+        presentation = "draft_document_demo";
+        generatedDocument = createDraftPetitionGeneratedDocument();
       } else {
         try {
           assistantReply = await resolvePrototypeAssistantReply({
@@ -264,6 +275,7 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
           role: "assistant",
           content: assistantReply,
           ...(presentation ? { presentation } : {}),
+          ...(generatedDocument ? { generatedDocument } : {}),
           ...(generatedTask ? { generatedTask } : {}),
         },
       ]);
@@ -475,6 +487,70 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
                       type="button"
                       aria-label="Share response"
                       onClick={() => void handleCopyMessage(chatMessage.content)}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                    >
+                      <Share2 className="h-3.5 w-3.5" strokeWidth={1.9} />
+                    </button>
+                  </div>
+                  <LexeeResponseEndSymbol visible={isLexeeEndSymbolVisible(messageIndex)} />
+                </div>
+              ) : chatMessage.presentation === "draft_document_demo" ? (
+                <div key={chatMessage.id} className="group max-w-[90%]">
+                  <ChatGeneratedDocumentCard
+                    document={
+                      chatMessage.generatedDocument ?? createDraftPetitionGeneratedDocument()
+                    }
+                    fileName={DRAFT_PETITION_FILE_NAME}
+                    saved={chatMessage.cloudLexSynced}
+                    onView={() => {
+                      const doc =
+                        chatMessage.generatedDocument ?? createDraftPetitionGeneratedDocument();
+                      openDocumentPreview([doc], "Draft document", "Generated draft");
+                    }}
+                    onSave={() => markTaskSynced(chatMessage.id)}
+                    onRegenerate={() => {
+                      if (isGenerating) return;
+                      for (let i = messageIndex - 1; i >= 0; i -= 1) {
+                        const candidate = messages[i];
+                        if (candidate?.role === "user") {
+                          void sendMessage(candidate.content);
+                          return;
+                        }
+                      }
+                    }}
+                  />
+                  <div
+                    className={[
+                      "mt-1 flex h-6 items-center gap-1 text-neutral-500 ui-t-opacity",
+                      messageIndex === lastAssistantMessageIndex
+                        ? "opacity-100"
+                        : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
+                    ].join(" ")}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Copy response"
+                      onClick={() =>
+                        void handleCopyMessage(
+                          chatMessage.content ||
+                            chatMessage.generatedDocument?.title ||
+                            "Generated document",
+                        )
+                      }
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
+                    >
+                      <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Share response"
+                      onClick={() =>
+                        void handleCopyMessage(
+                          chatMessage.content ||
+                            chatMessage.generatedDocument?.title ||
+                            "Generated document",
+                        )
+                      }
                       className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-200/80"
                     >
                       <Share2 className="h-3.5 w-3.5" strokeWidth={1.9} />

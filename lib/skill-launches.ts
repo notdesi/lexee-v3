@@ -67,3 +67,8 @@ export function shouldShowSummonsDocumentDemo(
   if (latestAssistantPresentation !== "summons_additional_instructions") return false;
   return !isSummonsDocumentRequestPrompt(prompt);
 }
+
+/** Any user prompt containing the word "document" shows the draft document card demo. */
+export function isDocumentKeywordPrompt(prompt: string): boolean {
+  return /\bdocument\b/i.test(prompt.trim());
+}

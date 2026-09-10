@@ -1,4 +1,5 @@
 import { getCaseById, type CaseScope } from "@/lib/cases";
+import type { DocumentPreview } from "@/components/DocumentPreviewPanel";
 import type { TaskCardData } from "@/components/TaskCard";
 import type { ComposerMode } from "@/lib/task-launches";
 
@@ -17,6 +18,7 @@ export type CaseChatMessage = {
   role: "user" | "assistant";
   content: string;
   presentation?: string;
+  generatedDocument?: DocumentPreview;
   generatedTask?: TaskCardData;
   cloudLexSynced?: boolean;
   /** Composer tool active when the user sent this message. */

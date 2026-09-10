@@ -33,6 +33,18 @@ export function createDemandLetterGeneratedDocument(): DocumentPreview {
   });
 }
 
+export const DRAFT_PETITION_DOCUMENT_TITLE = "5. Draft Petition Document";
+export const DRAFT_PETITION_FILE_NAME = "Angela Foster_5. Draft Petition Document";
+
+export function createDraftPetitionGeneratedDocument(): DocumentPreview {
+  return createSampleDocumentPreview({
+    title: DRAFT_PETITION_DOCUMENT_TITLE,
+    format: "DOCX",
+    editable: true,
+    isLexeeGenerated: true,
+  });
+}
+
 export function documentFromChatMessage(
   message: ChatGeneratedDocumentSource,
   options?: { matterName?: string | null },
@@ -42,6 +54,8 @@ export function documentFromChatMessage(
   switch (message.presentation) {
     case "summons_document_demo":
       return createSummonsGeneratedDocument(options?.matterName);
+    case "draft_document_demo":
+      return createDraftPetitionGeneratedDocument();
     case "medical_summary_demo":
       return createMedicalSummaryGeneratedDocument();
     case "demand_letter_demo":

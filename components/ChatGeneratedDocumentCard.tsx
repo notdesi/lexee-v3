@@ -4,14 +4,13 @@ import Image from "next/image";
 import {
   CheckCircle2,
   Download,
-  Eye,
-  RotateCcw,
-  UserRoundCheck,
+  RefreshCw,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { DocumentFormatBadge } from "@/components/DocumentFormatBadge";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from "react";
 import type { DocumentPreview } from "@/components/DocumentPreviewPanel";
+import { SaveToCloudLexModal } from "@/components/SaveToCloudLexModal";
 import { formatModShortcut, UiTooltip } from "@/components/UiTooltip";
+import { getDocumentFormatStyle } from "@/lib/document-format";
 import { UI_CARD_BASE, UI_T_COLORS } from "@/lib/ui-motion";
 
 export type ChatGeneratedDocumentCardProps = {
@@ -20,9 +19,12 @@ export type ChatGeneratedDocumentCardProps = {
   showIntro?: boolean;
   onView?: () => void;
   onDownload?: () => void;
-  onSave?: () => void;
+  onSave?: (payload?: {
+    category: string;
+    name: string;
+    sendForExpertApproval: boolean;
+  }) => void;
   onRegenerate?: () => void;
-  onSendForApproval?: () => void;
   saved?: boolean;
 };
 
@@ -40,11 +42,43 @@ const saveButtonClassName = [
   "hover:border-neutral-300 hover:bg-neutral-100 hover:text-neutral-950",
 ].join(" ");
 
-const approvalButtonClassName = [
-  "inline-flex items-center gap-1.5 text-[12.5px] font-medium text-violet-700",
-  UI_T_COLORS,
-  "hover:text-violet-900 hover:underline underline-offset-2",
-].join(" ");
+function DocumentFormatThumb() {
+  return (
+    <span
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700"
+      aria-hidden="true"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M14 2v6h6"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M8 13h8M8 17h8M9 9h4"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+}
 
 export function ChatGeneratedDocumentCard({
   document,
@@ -54,14 +88,15 @@ export function ChatGeneratedDocumentCard({
   onDownload,
   onSave,
   onRegenerate,
-  onSendForApproval,
   saved = false,
 }: ChatGeneratedDocumentCardProps) {
   const format = document.format ?? "DOCX";
+  const { label: formatLabel } = getDocumentFormatStyle(format);
   const displayFileName = fileName ?? document.title;
   const downloadHref = document.src;
   const cardRef = useRef<HTMLDivElement>(null);
   const [saveShortcut, setSaveShortcut] = useState("⌘S");
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
 
   useEffect(() => {
     setSaveShortcut(formatModShortcut("S"));
@@ -72,17 +107,29 @@ export function ChatGeneratedDocumentCard({
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s") return;
       const root = cardRef.current;
       if (!root || !root.contains(globalThis.document.activeElement)) return;
-      if (saved || !onSave) return;
+      if (saved) return;
       event.preventDefault();
-      onSave();
+      setSaveModalOpen(true);
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onSave, saved]);
+  }, [saved]);
+
+  const stopCardActivation = (event: MouseEvent) => {
+    event.stopPropagation();
+  };
+
+  const handleCardKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!onView) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onView();
+    }
+  };
 
   return (
-    <div className="mt-3 w-full max-w-2xl">
+    <div className="mt-3 w-full">
       {showIntro ? (
         <p className="text-response-md text-neutral-950">
           Drafted <span className="font-medium">{document.title}.</span>
@@ -91,35 +138,43 @@ export function ChatGeneratedDocumentCard({
 
       <div
         ref={cardRef}
-        className={`p-3.5 ${showIntro ? "mt-3" : ""} ${UI_CARD_BASE}`}
+        role={onView ? "button" : undefined}
+        tabIndex={onView ? 0 : undefined}
+        onClick={onView}
+        onKeyDown={handleCardKeyDown}
+        className={[
+          `p-3.5 text-left ${showIntro ? "mt-3" : ""} ${UI_CARD_BASE}`,
+          onView
+            ? `cursor-pointer ${UI_T_COLORS} hover:border-neutral-300`
+            : "",
+        ].join(" ")}
+        aria-label={onView ? `Open ${displayFileName}` : undefined}
       >
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-body-md font-medium text-neutral-950">
-              {displayFileName}
-            </p>
-            <DocumentFormatBadge format={format} size="sm" showIcon className="mt-1.5" />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <DocumentFormatThumb />
+            <div className="min-w-0">
+              <p className="truncate text-body-md font-medium text-neutral-950">
+                {displayFileName}
+              </p>
+              <p className="mt-0.5 text-[12px] leading-4 text-neutral-500">
+                {formatLabel}
+              </p>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            <UiTooltip label="View">
-              <button
-                type="button"
-                onClick={onView}
-                className={iconButtonClassName}
-                aria-label="View document"
-              >
-                <Eye className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-              </button>
-            </UiTooltip>
+          <div className="flex flex-wrap items-center gap-1.5" onClick={stopCardActivation}>
             <UiTooltip label="Regenerate">
               <button
                 type="button"
-                onClick={onRegenerate}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRegenerate?.();
+                }}
                 className={iconButtonClassName}
                 aria-label="Regenerate document"
               >
-                <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
               </button>
             </UiTooltip>
             <UiTooltip label="Download">
@@ -139,7 +194,10 @@ export function ChatGeneratedDocumentCard({
               ) : (
                 <button
                   type="button"
-                  onClick={onDownload}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDownload?.();
+                  }}
                   className={iconButtonClassName}
                   aria-label="Download document"
                 >
@@ -147,10 +205,13 @@ export function ChatGeneratedDocumentCard({
                 </button>
               )}
             </UiTooltip>
-            <UiTooltip label={saved ? "Saved to CloudLex" : "Save to CloudLex"} shortcut={saved ? undefined : saveShortcut}>
+            <UiTooltip label={saved ? "Saved to CloudLex" : "Save and Expert Review"} shortcut={saved ? undefined : saveShortcut}>
               <button
                 type="button"
-                onClick={onSave}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (!saved) setSaveModalOpen(true);
+                }}
                 disabled={saved}
                 className={[
                   saveButtonClassName,
@@ -158,7 +219,7 @@ export function ChatGeneratedDocumentCard({
                     ? "cursor-default border-teal-200 bg-teal-50 text-teal-700 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
                     : "",
                 ].join(" ")}
-                aria-label={saved ? "Saved to CloudLex" : `Save to CloudLex (${saveShortcut})`}
+                aria-label={saved ? "Saved to CloudLex" : `Save and Expert Review (${saveShortcut})`}
               >
                 {saved ? (
                   <CheckCircle2 className="h-3.5 w-3.5 text-teal-600" strokeWidth={2} aria-hidden="true" />
@@ -172,24 +233,22 @@ export function ChatGeneratedDocumentCard({
                     aria-hidden="true"
                   />
                 )}
-                {saved ? "Saved" : "Save"}
+                {saved ? "Saved" : "Save and Expert Review"}
               </button>
             </UiTooltip>
           </div>
         </div>
-
-        <div className="mt-3 flex justify-start">
-          <button
-            type="button"
-            onClick={onSendForApproval}
-            className={approvalButtonClassName}
-            aria-label="Expert Human Review"
-          >
-            <UserRoundCheck className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Expert Human Review
-          </button>
-        </div>
       </div>
+
+      <SaveToCloudLexModal
+        open={saveModalOpen}
+        documentName={displayFileName}
+        onClose={() => setSaveModalOpen(false)}
+        onSave={(payload) => {
+          onSave?.(payload);
+          setSaveModalOpen(false);
+        }}
+      />
     </div>
   );
 }

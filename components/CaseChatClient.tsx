@@ -495,7 +495,7 @@ export function CaseChatClient({ caseId, chatId }: CaseChatClientProps) {
                   <LexeeResponseEndSymbol visible={isLexeeEndSymbolVisible(messageIndex)} />
                 </div>
               ) : chatMessage.presentation === "draft_document_demo" ? (
-                <div key={chatMessage.id} className="group max-w-[90%]">
+                <div key={chatMessage.id} className="group w-full max-w-2xl">
                   <ChatGeneratedDocumentCard
                     document={
                       chatMessage.generatedDocument ?? createDraftPetitionGeneratedDocument()

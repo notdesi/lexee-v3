@@ -1122,7 +1122,7 @@ function HomeInner() {
                   </div>
                 ) : chatMessage.presentation === "draft_document_demo" ||
                   chatMessage.presentation === "summons_document_demo" ? (
-                  <div key={chatMessage.id} className="group max-w-[90%]">
+                  <div key={chatMessage.id} className="group w-full max-w-2xl">
                     {chatMessage.content ? (
                       <p className="whitespace-pre-wrap text-response-md text-neutral-950">
                         {chatMessage.content}
